@@ -1,0 +1,22 @@
+body{
+    background-color: rgb(38, 39, 41);
+}
+
+div{
+    border: solid white 1px;
+}
+
+.main-grid{
+    display: grid;
+    gap: 10px;
+    grid-template-columns: auto auto;
+}
+
+.flow-display{
+    min-height: 50px;
+}
+
+.balancer{
+    min-height: 100px;
+    background-color: darkolivegreen;
+}
