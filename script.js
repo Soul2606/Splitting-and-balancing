@@ -1,60 +1,92 @@
 
 
 class Balancer{
-	constructor(in_a,in_b,out_a,out_b){
-		this.in_a = in_a
-		this.in_b = in_b
-		this.out_a = out_a
-		this.out_b = out_b
+	constructor(out_a,out_b){
+		this.oscillation = false // flips between true and false for every balance
+		this.in_a = new Item()
+		this.in_b = new Item()
+		this.out_a = out_a // is an pointer
+		this.out_b = out_b // is an pointer
 	}
-}
 
+	transfer(input,output){
+		if (input.value === null || output.value !== null){
+			return false
+		} 
+		output.value = input.value
+		input.value = null
+		//return success 
+		return true
+	}
 
-function balance(lane_a,lane_b){
-	return {a:(lane_a+lane_b)/2, b:(lane_a+lane_b)/2}
-}
-
-function balance(balancers, initial_lanes){
-	let consecutive_lanes = {}
-	for (let i = 0; i < balancers.length; i++) {
-		const element = balancers[i];
-		let in_a
-		let in_b
-		let out_a
-		let out_b
+	balance(){
+		function do_stuff(out, in_a, in_b, oscillation, transfer_function) {
+			//Output value must be null because it must be empty to transfer
+			if (out !== undefined && out.value === null) {
 		
-		Object.keys(element).forEach(key =>{
-			
-			const lane_string = element[key];
-			console.log(lane_string)
-			
-			if (key === 'in_a'){
-				in_a = lane_string
+				let success = oscillation? transfer_function(in_a, out): transfer_function(in_b, out)
+
+				if (!success) {
+					//If unsuccessful try revers
+					!oscillation? transfer_function(in_a, out): transfer_function(in_b, out)
+				}			
 			}
-			if (key === 'in_b'){
-				in_b = lane_string
-			}
-			if (key === 'out_a'){
-				out_a = lane_string
-			}
-			if (key === 'out_b'){
-				out_b = lane_string
-			}
-			
-		})
-		
-		console.log(in_a, in_b, out_a, out_b)
-		if(initial_lanes[in_a] !== undefined && initial_lanes[in_b] !== undefined){
-			let results = balance(initial_lanes[in_a], initial_lanes[in_b])
-			consecutive_lanes[out_a] = results.a
-			consecutive_lanes[out_b] = results.b
-		}else{
-			console.log(`lane ${in_a} or lane ${in_b} does not exist`)
 		}
+		
+		if (this.oscillation){
+			do_stuff(this.out_a, this.in_a, this.in_b, this.oscillation, this.transfer)
+			do_stuff(this.out_b, this.in_b, this.in_a, this.oscillation, this.transfer)
+		}else{
+			do_stuff(this.out_b, this.in_b, this.in_a, this.oscillation, this.transfer)
+			do_stuff(this.out_a, this.in_a, this.in_b, this.oscillation, this.transfer)
+		}
+		this.oscillation = !this.oscillation
+		return [this.out_a, this.out_b]
 	}
-	return consecutive_lanes
+
+	print(){
+		return `in a:${this.in_a.value}, in b:${this.in_b.value}, out a:${this.out_a.value}, out b:${this.out_b.value}` 
+	}
+
 }
 
-let balancers = [new Balancer('a0', 'b0', 'a1', 'b1')]
 
-console.log(balance(balancers, {a0:1, b0:1}))
+
+class Item{
+	constructor(value){
+		this.value = value? value: null
+	}
+}
+
+
+
+let output_lane_a = new Item()
+let output_lane_b = new Item()
+let output_lane_c = new Item()
+
+
+let results_lane1 = {a:0, b:0}
+let results_lane2 = {a:0, b:0}
+let results_lane3 = {a:0, b:0}
+
+
+let balancer1 = new Balancer(output_lane_a)
+let balancer2 = new Balancer(output_lane_b, output_lane_c)
+balancer1.out_b = balancer2.in_a
+
+console.log(balancer1)
+
+for (let i = 0; i < 100; i++) {
+	balancer1.in_a.value = 'a'
+	balancer1.in_b.value = 'b'
+	balancer1.balance()
+	balancer2.balance()
+	results_lane1[output_lane_a.value]++
+	results_lane2[output_lane_b.value]++
+	results_lane3[output_lane_b.value]++
+	output_lane_a.value = null
+	output_lane_b.value = null
+	output_lane_c.value = null
+}
+
+console.log('lane a:',results_lane1, ' | lane b:', results_lane2, ' | lane c:', results_lane3)
