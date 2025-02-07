@@ -1,18 +1,25 @@
 
 
 class Balancer{
-	constructor(out_a,out_b){
+	constructor(out_a,out_b, name){
+		this.name = name // For debug purposes
 		this.oscillation = false // flips between true and false for every balance
-		this.in_a = new Item()
-		this.in_b = new Item()
+		this.in_a = new Single_item_container(null, this)
+		this.in_b = new Single_item_container(null, this)
 		this.out_a = out_a // is an pointer
 		this.out_b = out_b // is an pointer
 	}
 
 	transfer(input,output){
-		if (input.value === null || output.value !== null){
+
+		if (input.value === null || !input instanceof Single_item_container || !output instanceof Single_item_container) {
+			return false
+		}
+
+		if (output.value !== null){
 			return false
 		} 
+
 		output.value = input.value
 		input.value = null
 		//return success 
@@ -45,48 +52,60 @@ class Balancer{
 	}
 
 	print(){
-		return `in a:${this.in_a.value}, in b:${this.in_b.value}, out a:${this.out_a.value}, out b:${this.out_b.value}` 
+		console.log(`in a:${this.in_a.value}, in b:${this.in_b.value}, out a:${this.out_a.value}, out b:${this.out_b.value}`)
 	}
 
 }
 
 
 
-class Item{
+
+const sic_pointers = new Set()
+
+
+
+
+class Single_item_container{
 	constructor(value){
 		this.value = value? value: null
+		this.transfer_target = null
+		this.pending_send_to = null
+		this.pending_receive_from = null
+	}
+
+	set_target(transfer_target){
+		if (this.transfer_target === transfer_target){	
+			return true
+		}
+		if (sic_pointers.has(transfer_target)) {
+			console.warn('target already exists in sic_pointers')
+			return false
+		}
+		if (this.transfer_target !== null) {
+			console.log('removing from sic_pointers:', this.transfer_target)
+			sic_pointers.delete(this.transfer_target)
+		}
+		this.transfer_target = transfer_target
+		sic_pointers.add(transfer_target)
+		return true
 	}
 }
 
 
 
-let output_lane_a = new Item()
-let output_lane_b = new Item()
-let output_lane_c = new Item()
+
+
+
+let output_lane_a = new Single_item_container()
+
 
 
 let results_lane1 = {a:0, b:0}
-let results_lane2 = {a:0, b:0}
-let results_lane3 = {a:0, b:0}
 
-
-let balancer1 = new Balancer(output_lane_a)
-let balancer2 = new Balancer(output_lane_b, output_lane_c)
-balancer1.out_b = balancer2.in_a
-
-console.log(balancer1)
 
 for (let i = 0; i < 100; i++) {
-	balancer1.in_a.value = 'a'
-	balancer1.in_b.value = 'b'
-	balancer1.balance()
-	balancer2.balance()
 	results_lane1[output_lane_a.value]++
-	results_lane2[output_lane_b.value]++
-	results_lane3[output_lane_b.value]++
 	output_lane_a.value = null
-	output_lane_b.value = null
-	output_lane_c.value = null
 }
 
 console.log('lane a:',results_lane1, ' | lane b:', results_lane2, ' | lane c:', results_lane3)
