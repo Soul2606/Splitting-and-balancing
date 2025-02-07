@@ -1,58 +1,31 @@
 
 
 class Balancer{
-	constructor(out_a,out_b, name){
-		this.name = name // For debug purposes
-		this.oscillation = false // flips between true and false for every balance
-		this.in_a = new Doubly_linked_variable_transporter(null, this)
-		this.in_b = new Doubly_linked_variable_transporter(null, this)
-		this.out_a = out_a // is an pointer
-		this.out_b = out_b // is an pointer
+	constructor(input_dlvt_a, input_dlvt_b, output_dlvt_a, output_dlvt_b){
+		this.input_dlvt_a = input_dlvt_a
+		this.input_dlvt_b = input_dlvt_b
+		this.output_dlvt_a = output_dlvt_a
+		this.output_dlvt_b = output_dlvt_b
+		this.oscillation = false
 	}
 
-	transfer(input,output){
-
-		if (input.value === null || !input instanceof Doubly_linked_variable_transporter || !output instanceof Doubly_linked_variable_transporter) {
-			return false
+	toggle_swap(){
+		if (input_dlvt_a === undefined || input_dlvt_b === undefined || output_dlvt_a === undefined || output_dlvt_b === undefined) {
+			throw new Error("undefined parameters in:", this);
 		}
-
-		if (output.value !== null){
-			return false
-		} 
-
-		output.value = input.value
-		input.value = null
-		//return success 
-		return true
-	}
-
-	balance(){
-		function do_stuff(out, in_a, in_b, oscillation, transfer_function) {
-			//Output value must be null because it must be empty to transfer
-			if (out !== undefined && out.value === null) {
-		
-				let success = oscillation? transfer_function(in_a, out): transfer_function(in_b, out)
-
-				if (!success) {
-					//If unsuccessful try revers
-					!oscillation? transfer_function(in_a, out): transfer_function(in_b, out)
-				}			
-			}
-		}
-		
-		if (this.oscillation){
-			do_stuff(this.out_a, this.in_a, this.in_b, this.oscillation, this.transfer)
-			do_stuff(this.out_b, this.in_b, this.in_a, this.oscillation, this.transfer)
+		let failed = false
+		if (this.oscillation) {
+			failed = !this.input_dlvt_a.set_target(this.output_dlvt_a)
+			failed = !this.input_dlvt_b.set_target(this.output_dlvt_b)
 		}else{
-			do_stuff(this.out_b, this.in_b, this.in_a, this.oscillation, this.transfer)
-			do_stuff(this.out_a, this.in_a, this.in_b, this.oscillation, this.transfer)
+			failed = !this.input_dlvt_a.set_target(this.output_dlvt_b)
+			failed = !this.input_dlvt_b.set_target(this.output_dlvt_a)
+		}
+		if (failed) {
+			throw new Error("failed to configure new targets:", this);
+			
 		}
 		this.oscillation = !this.oscillation
-		return [this.out_a, this.out_b]
-	}
-
-	print(){
-		console.log(`in a:${this.in_a.value}, in b:${this.in_b.value}, out a:${this.out_a.value}, out b:${this.out_b.value}`)
 	}
 
 }
@@ -92,28 +65,30 @@ class Doubly_linked_variable_transporter{
 	}
 
 	prepare_transfer(){
+
 		if (this.transfer_target === undefined) {
 			console.warn(this.transfer_target, ', is undefined instead of null')
 		}
+
 		if (this.transfer_target === null || this.transfer_target === undefined) {
-			console.log('Hit end, path successfully formed')
 			// Transfer can only proceed if the final SIC is empty
 			if (this.value === null) {
-				return true
+				return {success:true, info:{termination:'hit end', self:this}}
 			}else{
-				return false
+				return {success:false, info:{termination:'hit end', self:this}}
 			}
 		}
+
 		if(this.transfer_target.pending_receive_from !== null){
-			console.log('Hit self, loop successfully formed')
-			return true
+			return {success:true, info:{termination:'loop', self:this}}
 		}
+
 		this.pending_item_to_send = this.value
 		this.pending_send_to = this.transfer_target
 		this.transfer_target.pending_receive_from = this
-		const can_transfer = this.transfer_target.prepare_transfer()
+		const results = this.transfer_target.prepare_transfer()
+		const can_transfer = results.success
 		if (can_transfer) {
-			console.log('transferring:', this.pending_item_to_send, 'to:', this.transfer_target.value)
 			// This must happen first
 			if (this.pending_receive_from === null) {
 				this.value = null
@@ -125,7 +100,7 @@ class Doubly_linked_variable_transporter{
 		this.pending_item_to_send = null
 		this.pending_send_to = null
 		this.pending_receive_from = null
-		return can_transfer
+		return {success:can_transfer, info:{self:this,target:results.info}}
 	}
 
 }
@@ -133,17 +108,37 @@ class Doubly_linked_variable_transporter{
 
 
 
+function create_balancer() {
+	const input_dlvt_a = new Doubly_linked_variable_transporter()
+	const input_dlvt_b = new Doubly_linked_variable_transporter()
+	const output_dlvt_a = new Doubly_linked_variable_transporter()
+	const output_dlvt_b = new Doubly_linked_variable_transporter()
+	input_dlvt_a.set_target(output_dlvt_a)
+	input_dlvt_b.set_target(output_dlvt_b)
+	const balancer = new Balancer(input_dlvt_a, input_dlvt_b, output_dlvt_a, output_dlvt_b)
+	return {input_dlvt_a:input_dlvt_a, input_dlvt_b:input_dlvt_b, output_dlvt_a:output_dlvt_a, output_dlvt_b:output_dlvt_b, balancer:balancer}
+}
 
 
-let dlvt_1 = new Doubly_linked_variable_transporter('A')
-let dlvt_2 = new Doubly_linked_variable_transporter('B')
-let dlvt_3 = new Doubly_linked_variable_transporter()
 
-dlvt_1.set_target(dlvt_2)
-dlvt_2.set_target(dlvt_3)
 
-console.log( dlvt_1, dlvt_2, dlvt_3)
 
-console.log(dlvt_1.prepare_transfer())
 
-console.log( dlvt_1, dlvt_2, dlvt_3)
+const start_dlvt_1 = new Doubly_linked_variable_transporter('A')
+const start_dlvt_2 = new Doubly_linked_variable_transporter('B')
+
+const end_dlvt_1 = new Doubly_linked_variable_transporter('')
+const end_dlvt_2 = new Doubly_linked_variable_transporter('')
+
+const balancer = create_balancer()
+
+start_dlvt_1.set_target(balancer.input_dlvt_a)
+start_dlvt_2.set_target(balancer.input_dlvt_b)
+
+balancer.output_dlvt_a.set_target(end_dlvt_1)
+balancer.output_dlvt_b.set_target(end_dlvt_2)
+
+
+
+console.log(start_dlvt_1.prepare_transfer())
+console.log(start_dlvt_2.prepare_transfer())
