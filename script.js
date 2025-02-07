@@ -89,6 +89,27 @@ class Single_item_container{
 		sic_pointers.add(transfer_target)
 		return true
 	}
+
+	prepare_transfer(){
+		if(this.transfer_target.pending_receive_from !== null){
+			console.log('Hit self, loop successfully formed')
+			return true
+		}
+		if (this.transfer_target === null) {
+			console.log('Hit end, path successfully formed')
+			// Transfer can only proceed if the final SIC is empty
+			if (this.value === null) {
+				return true
+			}else{
+				return false
+			}
+		}
+		console.log('recursion from:', this)
+		this.pending_send_to = this.transfer_target
+		this.transfer_target.pending_receive_from = this
+		return this.transfer_target.prepare_transfer()
+	}
+
 }
 
 
@@ -96,16 +117,13 @@ class Single_item_container{
 
 
 
-let output_lane_a = new Single_item_container()
+let sic_1 = new Single_item_container('A')
+let sic_2 = new Single_item_container('B')
 
+sic_1.set_target(sic_2)
+sic_2.set_target(sic_1)
 
+console.log(sic_1)
+console.log(sic_2)
 
-let results_lane1 = {a:0, b:0}
-
-
-for (let i = 0; i < 100; i++) {
-	results_lane1[output_lane_a.value]++
-	output_lane_a.value = null
-}
-
-console.log('lane a:',results_lane1, ' | lane b:', results_lane2, ' | lane c:', results_lane3)
+console.log(sic_1.prepare_transfer())
