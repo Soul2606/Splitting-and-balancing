@@ -75,35 +75,39 @@ class Doubly_linked_variable_transporter{
 			console.log('removing from dlvt_pointers:', this.transfer_target)
 			dlvt_pointers.delete(this.transfer_target)
 		}
+		if (new_transfer_target.targeted_by !== null) {
+			throw new Error("This DLVT is already targeted by another DLVT");
+		}
 		new_transfer_target.targeted_by = this
 		this.transfer_target = new_transfer_target
 		dlvt_pointers.add(new_transfer_target)
 		return true
 	}
 
-	prepare_transfer(){
+	transfer_recursively(){
 
 		if (this.transfer_target === undefined) {
 			console.warn(this.transfer_target, ', is undefined instead of null')
 		}
 
 		if (this.transfer_target === null || this.transfer_target === undefined) {
-			// Transfer can only proceed if the final SIC is empty
+			// Transfer can only proceed if the final DLVT is empty
 			if (this.value === null) {
-				return {success:true, info:{termination:'hit end', self:this}}
+				return {success:true, info:{termination:'hit end', chain:[this]}}
 			}else{
-				return {success:false, info:{termination:'hit end', self:this}}
+				return {success:false, info:{termination:'hit end', chain:[this]}}
 			}
 		}
 
 		if(this.transfer_target.pending_receive_from !== null){
-			return {success:true, info:{termination:'loop', self:this}}
+			// when a loop is detected the chain must start empty
+			return {success:true, info:{termination:'loop', chain:[]}}
 		}
 
 		this.pending_item_to_send = this.value
 		this.pending_send_to = this.transfer_target
 		this.transfer_target.pending_receive_from = this
-		const results = this.transfer_target.prepare_transfer()
+		const results = this.transfer_target.transfer_recursively()
 		const can_transfer = results.success
 		if (can_transfer) {
 			// This must happen first
@@ -111,13 +115,12 @@ class Doubly_linked_variable_transporter{
 				this.value = null
 			}
 			this.transfer_target.value = this.pending_item_to_send
-		}else{
-			console.log('transfer failed')
 		}
 		this.pending_item_to_send = null
 		this.pending_send_to = null
 		this.pending_receive_from = null
-		return {success:can_transfer, info:{self:this,target:results.info}}
+		results.info.chain.unshift(this)
+		return results
 	}
 
 	search_backwards(origin){
@@ -181,19 +184,49 @@ function create_balancer() {
 
 
 
+function execute_transfer_on_all_dlvt_chains(all_dlvts){
+	const all_transfers_info = []
+	const unexecuted_dlvts = Array.from(all_dlvts)
+	let failsafe = 1000
+
+	while (unexecuted_dlvts.length > 0 && failsafe > 0) {
+		const transfer_info = unexecuted_dlvts[0].transfer_recursively()
+		all_transfers_info.push(transfer_info)
+		const dlvt_chain_array = transfer_info.info.chain
+		for (let i = 0; i < dlvt_chain_array.length; i++) {
+			const dlvt_in_chain = dlvt_chain_array[i];
+			const index_to_remove = unexecuted_dlvts.indexOf(dlvt_in_chain)
+			if (index_to_remove !== -1) {
+				unexecuted_dlvts.splice(index_to_remove, 1)
+			}
+			if (all_dlvts.indexOf(dlvt_in_chain) === -1) {
+				console.warn('found a dlvt in transfer chain that is not in all_dlvts')
+			}
+		}
+		failsafe -= 1
+	}
+	if (failsafe <= 0) {
+		console.warn('failsafe triggered')
+	}
+	return all_transfers_info
+}
 
 
-const dlvt_1 = new Doubly_linked_variable_transporter('A')
-const dlvt_2 = new Doubly_linked_variable_transporter('B')
-const dlvt_3 = new Doubly_linked_variable_transporter('C')
-const dlvt_4 = new Doubly_linked_variable_transporter('D')
-const dlvt_5 = new Doubly_linked_variable_transporter('E')
 
-dlvt_1.set_target(dlvt_2)
-dlvt_2.set_target(dlvt_3)
-dlvt_3.set_target(dlvt_4)
-dlvt_4.set_target(dlvt_5)
-dlvt_5.set_target(dlvt_1)
 
-console.log(dlvt_1.search(dlvt_1), 'end')
+
+
+const dlvt_1a = new Doubly_linked_variable_transporter('A')
+const dlvt_2a = new Doubly_linked_variable_transporter('B')
+const dlvt_3a = new Doubly_linked_variable_transporter('C')
+const dlvt_4a = new Doubly_linked_variable_transporter('D')
+const dlvt_5a = new Doubly_linked_variable_transporter('E')
+
+dlvt_1a.set_target(dlvt_2a)
+dlvt_2a.set_target(dlvt_3a)
+dlvt_3a.set_target(dlvt_4a)
+dlvt_4a.set_target(dlvt_5a)
+dlvt_5a.set_target(dlvt_1a)
+
+console.log(execute_transfer_on_all_dlvt_chains([dlvt_1a, dlvt_2a, dlvt_3a, dlvt_4a, dlvt_5a]))
 
