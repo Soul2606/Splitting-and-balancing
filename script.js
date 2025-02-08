@@ -14,18 +14,31 @@ class Balancer{
 			throw new Error("undefined parameters in:", this);
 		}
 		let failed = false
-		if (this.oscillation) {
-			failed = !this.input_dlvt_a.set_target(this.output_dlvt_a)
-			failed = !this.input_dlvt_b.set_target(this.output_dlvt_b)
-		}else{
+		if ((this.input_dlvt_a.value === null && this.output_dlvt_a === null && this.input_dlvt_b !== null && this.output_dlvt_b !== null) || (this.input_dlvt_b.value === null && this.output_dlvt_b === null && this.input_dlvt_a !== null && this.output_dlvt_a !== null)) {
+			//Cross
 			failed = !this.input_dlvt_a.set_target(this.output_dlvt_b)
 			failed = !this.input_dlvt_b.set_target(this.output_dlvt_a)
+			this.oscillation = true
+		}else if ((this.input_dlvt_a.value === null && this.output_dlvt_b === null && this.input_dlvt_b !== null && this.output_dlvt_a !== null) || (this.input_dlvt_b.value === null && this.output_dlvt_a === null && this.input_dlvt_a !== null && this.output_dlvt_b !== null)) {
+			//Straight
+			failed = !this.input_dlvt_a.set_target(this.output_dlvt_a)
+			failed = !this.input_dlvt_b.set_target(this.output_dlvt_b)
+			this.oscillation = false
+		}else{
+			//Random
+			if (this.oscillation) {
+				failed = !this.input_dlvt_a.set_target(this.output_dlvt_a)
+				failed = !this.input_dlvt_b.set_target(this.output_dlvt_b)
+			}else{
+				failed = !this.input_dlvt_a.set_target(this.output_dlvt_b)
+				failed = !this.input_dlvt_b.set_target(this.output_dlvt_a)
+			}
+			this.oscillation = !this.oscillation
 		}
 		if (failed) {
 			throw new Error("failed to configure new targets:", this);
 			
 		}
-		this.oscillation = !this.oscillation
 	}
 
 }
@@ -42,25 +55,29 @@ class Doubly_linked_variable_transporter{
 	constructor(value){
 		this.value = value? value: null
 		this.transfer_target = null
+		this.targeted_by = null
 		this.pending_item_to_send = null
 		this.pending_send_to = null
 		this.pending_receive_from = null
 	}
 
-	set_target(transfer_target){
-		if (this.transfer_target === transfer_target){	
+	set_target(new_transfer_target){
+		if (this.transfer_target === new_transfer_target){
+			this.targeted_by = this
 			return true
 		}
-		if (dlvt_pointers.has(transfer_target)) {
+		if (dlvt_pointers.has(new_transfer_target)) {
 			console.warn('target already exists in dlvt_pointers')
 			return false
 		}
 		if (this.transfer_target !== null) {
+			this.transfer_target.targeted_by = null
 			console.log('removing from dlvt_pointers:', this.transfer_target)
 			dlvt_pointers.delete(this.transfer_target)
 		}
-		this.transfer_target = transfer_target
-		dlvt_pointers.add(transfer_target)
+		new_transfer_target.targeted_by = this
+		this.transfer_target = new_transfer_target
+		dlvt_pointers.add(new_transfer_target)
 		return true
 	}
 
@@ -103,6 +120,49 @@ class Doubly_linked_variable_transporter{
 		return {success:can_transfer, info:{self:this,target:results.info}}
 	}
 
+	search_backwards(origin){
+		const results_set = new Set()
+		if (origin === undefined) {
+			return results_set
+		}
+		if (this.targeted_by === origin) {
+			results_set.add(this)
+			return results_set
+		}
+		if (this.targeted_by === null) {
+			results_set.add(this)
+			return results_set
+		}
+		this.targeted_by.search_backwards(origin).forEach(item => {
+			results_set.add(item)	
+		})
+		results_set.add(this)
+		return results_set 
+	}
+
+	search(origin){
+		const results_set = new Set()
+		if (origin === undefined) {
+			return results_set
+		}
+		if (this.transfer_target === origin) {
+			results_set.add(this)
+			return results_set
+		}
+		if (this.transfer_target === null) {
+			//Skip back to start and start searching backwards
+			origin.search_backwards(origin).forEach(item => {
+				results_set.add(item)	
+			})
+			results_set.add(this)
+			return results_set
+		}
+		this.transfer_target.search(origin).forEach(item => {
+			results_set.add(item)	
+		})
+		results_set.add(this)
+		return results_set
+	}
 }
 
 
@@ -124,21 +184,12 @@ function create_balancer() {
 
 
 
-const start_dlvt_1 = new Doubly_linked_variable_transporter('A')
-const start_dlvt_2 = new Doubly_linked_variable_transporter('B')
+const dlvt_1 = new Doubly_linked_variable_transporter('A')
+const dlvt_2 = new Doubly_linked_variable_transporter('B')
+const dlvt_3 = new Doubly_linked_variable_transporter('C')
 
-const end_dlvt_1 = new Doubly_linked_variable_transporter('')
-const end_dlvt_2 = new Doubly_linked_variable_transporter('')
+dlvt_1.set_target(dlvt_2)
+dlvt_2.set_target(dlvt_3)
+dlvt_3.set_target(dlvt_1)
 
-const balancer = create_balancer()
-
-start_dlvt_1.set_target(balancer.input_dlvt_a)
-start_dlvt_2.set_target(balancer.input_dlvt_b)
-
-balancer.output_dlvt_a.set_target(end_dlvt_1)
-balancer.output_dlvt_b.set_target(end_dlvt_2)
-
-
-
-console.log(start_dlvt_1.prepare_transfer())
-console.log(start_dlvt_2.prepare_transfer())
+console.log(dlvt_1.search_backwards(dlvt_1))
