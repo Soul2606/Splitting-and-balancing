@@ -141,27 +141,30 @@ class Doubly_linked_variable_transporter{
 	}
 
 	search(origin){
-		const results_set = new Set()
+		const results_set_if_loop = new Set()
 		if (origin === undefined) {
-			return results_set
+			throw new Error("search called without origin defined");
 		}
 		if (this.transfer_target === origin) {
-			results_set.add(this)
-			return results_set
+			results_set_if_loop.add(this)
+			return {termination:'loop',set:results_set_if_loop}
 		}
 		if (this.transfer_target === null) {
-			//Skip back to start and start searching backwards
-			origin.search_backwards(origin).forEach(item => {
-				results_set.add(item)	
-			})
-			results_set.add(this)
-			return results_set
+			//If this dlvt does not have a transfer target that means that this chain is not a loop, so we discard everything and search backwards
+			console.log('searching backwards, this:', this)
+			return {termination:'linear', set:this.search_backwards(this)}
 		}
-		this.transfer_target.search(origin).forEach(item => {
-			results_set.add(item)	
+
+		const results = this.transfer_target.search(origin)
+		if (results.termination === 'linear') {
+			// If the chain is linear, pass the results without modifying anything
+			return results
+		}
+		results_set_if_loop.add(this)
+		results.set.forEach(item => {
+			results_set_if_loop.add(item)	
 		})
-		results_set.add(this)
-		return results_set
+		return results
 	}
 }
 
@@ -187,9 +190,16 @@ function create_balancer() {
 const dlvt_1 = new Doubly_linked_variable_transporter('A')
 const dlvt_2 = new Doubly_linked_variable_transporter('B')
 const dlvt_3 = new Doubly_linked_variable_transporter('C')
+const dlvt_4 = new Doubly_linked_variable_transporter('D')
+const dlvt_5 = new Doubly_linked_variable_transporter('E')
 
 dlvt_1.set_target(dlvt_2)
 dlvt_2.set_target(dlvt_3)
-dlvt_3.set_target(dlvt_1)
+dlvt_3.set_target(dlvt_4)
+dlvt_4.set_target(dlvt_5)
+//dlvt_5.set_target(dlvt_1)
 
-console.log(dlvt_1.search_backwards(dlvt_1))
+console.log(dlvt_4.search(dlvt_4))
+
+console.log('searching backwards, this:', dlvt_5)
+console.log(dlvt_5.search_backwards(dlvt_5))
