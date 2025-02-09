@@ -14,27 +14,50 @@ class Balancer{
 			throw new Error("undefined parameters in:", this);
 		}
 		let failed = false
-		if ((this.input_dlvt_a.value === null && this.output_dlvt_a === null && this.input_dlvt_b !== null && this.output_dlvt_b !== null) || (this.input_dlvt_b.value === null && this.output_dlvt_b === null && this.input_dlvt_a !== null && this.output_dlvt_a !== null)) {
+		//Random
+		if (this.oscillation) {
+			failed = !this.input_dlvt_a.set_target(this.output_dlvt_a)
+			failed = !this.input_dlvt_b.set_target(this.output_dlvt_b)
+		}else{
+			failed = !this.input_dlvt_a.set_target(this.output_dlvt_b)
+			failed = !this.input_dlvt_b.set_target(this.output_dlvt_a)
+		}
+		this.oscillation = !this.oscillation
+		if (failed) {
+			throw new Error("failed to configure new targets:", this);
+			
+		}
+	}
+
+	push_to_empty_outputs(){
+		//This function exists to essentially give a buffer for one dlvt, if input stops for only one cycle, then the flow will still be continuous
+		if (input_dlvt_a === undefined || input_dlvt_b === undefined || output_dlvt_a === undefined || output_dlvt_b === undefined) {
+			throw new Error("undefined parameters in:", this);
+		}
+
+		// If only one non empty input has only one empty output available: reconfigure targets so that a transfer is guaranteed to happen
+		let failed = false
+		const input_a_empty = this.input_dlvt_a === null
+		const input_b_empty = this.input_dlvt_b === null
+		const output_a_empty = this.output_dlvt_a === null
+		const output_b_empty = this.output_dlvt_b === null
+
+		if ((input_a_empty && !input_b_empty && output_a_empty && !output_b_empty) || 
+		(!input_a_empty && input_b_empty && !output_a_empty && output_b_empty)) {
 			//Cross
 			failed = !this.input_dlvt_a.set_target(this.output_dlvt_b)
 			failed = !this.input_dlvt_b.set_target(this.output_dlvt_a)
 			this.oscillation = true
-		}else if ((this.input_dlvt_a.value === null && this.output_dlvt_b === null && this.input_dlvt_b !== null && this.output_dlvt_a !== null) || (this.input_dlvt_b.value === null && this.output_dlvt_a === null && this.input_dlvt_a !== null && this.output_dlvt_b !== null)) {
+		}else if ((input_a_empty && !input_b_empty && !output_a_empty && output_b_empty) || 
+		(!input_a_empty && input_b_empty && output_a_empty && !output_b_empty)) {
 			//Straight
 			failed = !this.input_dlvt_a.set_target(this.output_dlvt_a)
 			failed = !this.input_dlvt_b.set_target(this.output_dlvt_b)
 			this.oscillation = false
-		}else{
-			//Random
-			if (this.oscillation) {
-				failed = !this.input_dlvt_a.set_target(this.output_dlvt_a)
-				failed = !this.input_dlvt_b.set_target(this.output_dlvt_b)
-			}else{
-				failed = !this.input_dlvt_a.set_target(this.output_dlvt_b)
-				failed = !this.input_dlvt_b.set_target(this.output_dlvt_a)
-			}
-			this.oscillation = !this.oscillation
 		}
+		// If both these conditions fail then keep targets as is (random)
+		this.input_dlvt_a.transfer()
+		this.input_dlvt_b.transfer()
 		if (failed) {
 			throw new Error("failed to configure new targets:", this);
 			
@@ -234,8 +257,8 @@ function execute_transfer_on_all_dlvt_chains(all_dlvts){
 
 const dlvt_1a = new Doubly_linked_variable_transporter('A')
 const dlvt_1b = new Doubly_linked_variable_transporter('B')
-const dlvt_2a = new Doubly_linked_variable_transporter('C')
-const dlvt_2b = new Doubly_linked_variable_transporter('D')
+const dlvt_2a = new Doubly_linked_variable_transporter('')
+const dlvt_2b = new Doubly_linked_variable_transporter('')
 
 const all_dlvts = [dlvt_1a, dlvt_1b, dlvt_2a, dlvt_2b]
 
