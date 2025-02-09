@@ -217,6 +217,10 @@ function create_balancer() {
 	input_dlvt_a.set_target(output_dlvt_a)
 	input_dlvt_b.set_target(output_dlvt_b)
 	const balancer = new Balancer(input_dlvt_a, input_dlvt_b, output_dlvt_a, output_dlvt_b)
+	all_dlvts.push(input_dlvt_a)
+	all_dlvts.push(input_dlvt_b)
+	all_dlvts.push(output_dlvt_a)
+	all_dlvts.push(output_dlvt_b)
 	return {input_dlvt_a:input_dlvt_a, input_dlvt_b:input_dlvt_b, output_dlvt_a:output_dlvt_a, output_dlvt_b:output_dlvt_b, balancer:balancer}
 }
 
@@ -255,24 +259,88 @@ function execute_transfer_on_all_dlvt_chains(all_dlvts){
 
 
 
-const dlvt_1a = new Doubly_linked_variable_transporter('A')
-const dlvt_1b = new Doubly_linked_variable_transporter('B')
-const dlvt_2a = new Doubly_linked_variable_transporter('')
-const dlvt_2b = new Doubly_linked_variable_transporter('')
+const start_a = new Doubly_linked_variable_transporter('A')
+const start_b = new Doubly_linked_variable_transporter('B')
+const end_a = new Doubly_linked_variable_transporter('')
+const end_b = new Doubly_linked_variable_transporter('')
+const end_c = new Doubly_linked_variable_transporter('')
 
-const all_dlvts = [dlvt_1a, dlvt_1b, dlvt_2a, dlvt_2b]
+const start_dlvts = [start_a, start_b]
+
+const all_dlvts = [start_a, start_b, end_a, end_b, end_c]
 
 const balancer_1a = create_balancer()
 
-all_dlvts.push(balancer_1a.input_dlvt_a)
-all_dlvts.push(balancer_1a.input_dlvt_b)
-all_dlvts.push(balancer_1a.output_dlvt_a)
-all_dlvts.push(balancer_1a.output_dlvt_b)
+const balancer_2a = create_balancer()
 
-dlvt_1a.set_target(balancer_1a.input_dlvt_a)
-dlvt_1b.set_target(balancer_1a.input_dlvt_b)
-balancer_1a.output_dlvt_a.set_target(dlvt_2a)
-balancer_1a.output_dlvt_b.set_target(dlvt_2b)
+const all_balancers = [balancer_1a, balancer_2a]
 
-console.log(execute_transfer_on_all_dlvt_chains(all_dlvts))
+start_a.set_target(balancer_1a.input_dlvt_a)
+start_b.set_target(balancer_1a.input_dlvt_b)
+balancer_1a.output_dlvt_a.set_target(end_a)
+balancer_1a.output_dlvt_b.set_target(balancer_2a.input_dlvt_a)
+balancer_2a.output_dlvt_a.set_target(end_b)
+balancer_2a.output_dlvt_b.set_target(end_c)
 
+
+
+
+
+const main_grid = document.getElementById('main-grid')
+
+const grid_column_associate = []
+const grid_column_associate_loop_back = []
+
+console.log(main_grid)
+
+for (let i = 0; i < start_dlvts.length; i++) {
+	const dlvt = start_dlvts[i];
+	grid_column_associate.push(dlvt)
+	const start_column = document.createElement('div')
+	start_column.className = 'flow-display'
+	start_column.style.gridColumn = `${i+1}/${i+2}`
+	main_grid.appendChild(start_column)
+}
+
+console.log(Array.from(grid_column_associate))
+
+//const all_consecutive_dlvts = all_dlvts.filter(dlvt => !start_dlvts.includes(dlvt))
+
+
+for (let i = 0; i < all_balancers.length; i++) {
+	const balancer = all_balancers[i];
+
+	let start_column
+	let end_column
+
+	if(!grid_column_associate.includes(balancer.input_dlvt_a.targeted_by)){
+		start_column = grid_column_associate.length + 1
+		if (balancer.input_dlvt_a.targeted_by === null) {
+			grid_column_associate.push(balancer.output_dlvt_a)
+		}else{
+			grid_column_associate_loop_back.push({grid_column_associate_index:grid_column_associate.length, associate:balancer.input_dlvt_a})
+		}
+	}else{
+		start_column = grid_column_associate.indexOf(balancer.input_dlvt_a.targeted_by) + 1
+		grid_column_associate[grid_column_associate.indexOf(balancer.input_dlvt_a.targeted_by)] = balancer.output_dlvt_a
+	}
+	
+	if(!grid_column_associate.includes(balancer.input_dlvt_b.targeted_by)){
+		end_column = grid_column_associate.length + 2
+		if (balancer.input_dlvt_b.targeted_by === null) {
+			grid_column_associate.push(balancer.output_dlvt_b)
+		}else{
+			grid_column_associate_loop_back.push({grid_column_associate_index:grid_column_associate.length, associate:balancer.input_dlvt_b})
+		}
+	}else{
+		end_column = grid_column_associate.indexOf(balancer.input_dlvt_b.targeted_by) + 2
+		grid_column_associate[grid_column_associate.indexOf(balancer.input_dlvt_b.targeted_by)] = balancer.output_dlvt_b
+	}
+
+	const balancer_element = document.createElement('div')
+	balancer_element.className = 'balancer'
+	balancer_element.style.gridColumn = `${start_column}/${end_column}`
+	main_grid.appendChild(balancer_element)
+	
+	console.log(Array.from(grid_column_associate), 'get later', Array.from(grid_column_associate_loop_back))
+}
