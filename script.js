@@ -84,6 +84,21 @@ class Doubly_linked_variable_transporter{
 		return true
 	}
 
+	transfer(){
+		if (this.transfer_target === null) {
+			return false
+		}
+		if (this.transfer_target.value !== null) {
+			return false
+		}
+		if (this.transfer_target === this) {
+			return true
+		}
+		this.transfer_target.value = this.value
+		this.value = null
+		return true
+	}
+
 	transfer_recursively(){
 
 		if (this.transfer_target === undefined) {
@@ -93,9 +108,9 @@ class Doubly_linked_variable_transporter{
 		if (this.transfer_target === null || this.transfer_target === undefined) {
 			// Transfer can only proceed if the final DLVT is empty
 			if (this.value === null) {
-				return {success:true, info:{termination:'hit end', chain:[this]}}
+				return {success:true, info:{termination:'hit end', chain:[{reference:this, success:true}]}}
 			}else{
-				return {success:false, info:{termination:'hit end', chain:[this]}}
+				return {success:false, info:{termination:'hit end', chain:[{reference:this, success:false}]}}
 			}
 		}
 
@@ -108,7 +123,7 @@ class Doubly_linked_variable_transporter{
 		this.pending_send_to = this.transfer_target
 		this.transfer_target.pending_receive_from = this
 		const results = this.transfer_target.transfer_recursively()
-		const can_transfer = results.success
+		const can_transfer = results.success || this.transfer_target.value === null
 		if (can_transfer) {
 			// This must happen first
 			if (this.pending_receive_from === null) {
@@ -119,7 +134,8 @@ class Doubly_linked_variable_transporter{
 		this.pending_item_to_send = null
 		this.pending_send_to = null
 		this.pending_receive_from = null
-		results.info.chain.unshift(this)
+		results.info.chain.unshift({reference:this, success:can_transfer})
+		results.success = can_transfer
 		return results
 	}
 
@@ -194,13 +210,13 @@ function execute_transfer_on_all_dlvt_chains(all_dlvts){
 		all_transfers_info.push(transfer_info)
 		const dlvt_chain_array = transfer_info.info.chain
 		for (let i = 0; i < dlvt_chain_array.length; i++) {
-			const dlvt_in_chain = dlvt_chain_array[i];
+			const dlvt_in_chain = dlvt_chain_array[i].reference;
 			const index_to_remove = unexecuted_dlvts.indexOf(dlvt_in_chain)
 			if (index_to_remove !== -1) {
 				unexecuted_dlvts.splice(index_to_remove, 1)
 			}
 			if (all_dlvts.indexOf(dlvt_in_chain) === -1) {
-				console.warn('found a dlvt in transfer chain that is not in all_dlvts')
+				console.warn('found a dlvt in transfer chain that is not in all_dlvts:', dlvt_in_chain)
 			}
 		}
 		failsafe -= 1
@@ -217,16 +233,23 @@ function execute_transfer_on_all_dlvt_chains(all_dlvts){
 
 
 const dlvt_1a = new Doubly_linked_variable_transporter('A')
-const dlvt_2a = new Doubly_linked_variable_transporter('B')
-const dlvt_3a = new Doubly_linked_variable_transporter('C')
-const dlvt_4a = new Doubly_linked_variable_transporter('D')
-const dlvt_5a = new Doubly_linked_variable_transporter('E')
+const dlvt_1b = new Doubly_linked_variable_transporter('B')
+const dlvt_2a = new Doubly_linked_variable_transporter('C')
+const dlvt_2b = new Doubly_linked_variable_transporter('D')
 
-dlvt_1a.set_target(dlvt_2a)
-dlvt_2a.set_target(dlvt_3a)
-dlvt_3a.set_target(dlvt_4a)
-dlvt_4a.set_target(dlvt_5a)
-dlvt_5a.set_target(dlvt_1a)
+const all_dlvts = [dlvt_1a, dlvt_1b, dlvt_2a, dlvt_2b]
 
-console.log(execute_transfer_on_all_dlvt_chains([dlvt_1a, dlvt_2a, dlvt_3a, dlvt_4a, dlvt_5a]))
+const balancer_1a = create_balancer()
+
+all_dlvts.push(balancer_1a.input_dlvt_a)
+all_dlvts.push(balancer_1a.input_dlvt_b)
+all_dlvts.push(balancer_1a.output_dlvt_a)
+all_dlvts.push(balancer_1a.output_dlvt_b)
+
+dlvt_1a.set_target(balancer_1a.input_dlvt_a)
+dlvt_1b.set_target(balancer_1a.input_dlvt_b)
+balancer_1a.output_dlvt_a.set_target(dlvt_2a)
+balancer_1a.output_dlvt_b.set_target(dlvt_2b)
+
+console.log(execute_transfer_on_all_dlvt_chains(all_dlvts))
 
