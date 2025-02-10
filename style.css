@@ -7,16 +7,75 @@ div{
 }
 
 #main-grid{
+    min-width: min-content;
+    width: 100%;
     display: grid;
     gap: 15px;
     grid-template-columns: auto;
+    border: none;
+    border-left: solid 1px white;
+    padding: 5px;
+    margin-bottom: 5px;
+}
+
+#add-input-lane-button{
+    height: 50px;
+    min-width: 50px;
+}
+
+#add-input-lane-button:hover{
+    background-color: darkorange;
+}
+
+#add-row-button{
+    height: 50px;
+    width: 50px;
+}
+
+#add-row-button:hover{
+    background-color: darkolivegreen;
+}
+
+#add-loop-back-button{
+    height: 50px;
+    width: 50px;
+}
+
+#add-loop-back-button:hover{
+    background-color: darkorchid;
+}
+
+.input-flow-display{
+    height: 50px;
+    min-width: 50px;
+    grid-row: 1/2;
 }
 
 .flow-display{
-    min-height: 50px;
+    height: 50px;
 }
 
 .balancer{
-    min-height: 100px;
     background-color: darkolivegreen;
+}
+
+.loop-back{
+    background-color: darkorchid;
+}
+
+.adjustable-spanner{
+    min-height: 100px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 15px;
+}
+
+.adjustable-spanner-buttons-container{
+    display: flex;
+}
+
+.adjustable-spanner-button{
+    width: 50px;
+    height: 50px;
 }

@@ -286,61 +286,111 @@ balancer_2a.output_dlvt_b.set_target(end_c)
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 const main_grid = document.getElementById('main-grid')
 
-const grid_column_associate = []
-const grid_column_associate_loop_back = []
+const add_input_lane_button = document.getElementById('add-input-lane-button')
 
-console.log(main_grid)
+const add_row_button = document.getElementById('add-row-button')
+const add_loop_back_button = document.getElementById('add-loop-back-button')
 
-for (let i = 0; i < start_dlvts.length; i++) {
-	const dlvt = start_dlvts[i];
-	grid_column_associate.push(dlvt)
-	const start_column = document.createElement('div')
-	start_column.className = 'flow-display'
-	start_column.style.gridColumn = `${i+1}/${i+2}`
-	main_grid.appendChild(start_column)
+let input_lanes = 0
+
+
+
+
+function grid_column_shift(shift_start, shift_end, element, min_span = 1){
+	console.log('sifting',shift_start,shift_end)
+	if (Number(element.style.gridColumnStart) + shift_start < 1 || Number(element.style.gridColumnStart) + shift_start >= Number(element.style.gridColumnEnd) - (min_span - 1)) {
+		console.log('cancelled condition 1')
+		return
+	}
+	if (Number(element.style.gridColumnEnd) + shift_end <= Number(element.style.gridColumnStart) + min_span - 1) {
+		console.log('cancelled condition 2')
+		return
+	}
+	element.style.gridColumnStart = Number(element.style.gridColumnStart) + shift_start
+	element.style.gridColumnEnd = Number(element.style.gridColumnEnd) + shift_end
 }
 
-console.log(Array.from(grid_column_associate))
-
-//const all_consecutive_dlvts = all_dlvts.filter(dlvt => !start_dlvts.includes(dlvt))
 
 
-for (let i = 0; i < all_balancers.length; i++) {
-	const balancer = all_balancers[i];
 
-	let start_column
-	let end_column
+function create_adjustable_grid_spanner(min_span = 1, class_name = '') {
+	const root = document.createElement('div')
+	root.className = 'adjustable-spanner'
+	root.classList.add(class_name)
+	root.style.gridColumn = '1/3'
 
-	if(!grid_column_associate.includes(balancer.input_dlvt_a.targeted_by)){
-		start_column = grid_column_associate.length + 1
-		if (balancer.input_dlvt_a.targeted_by === null) {
-			grid_column_associate.push(balancer.output_dlvt_a)
-		}else{
-			grid_column_associate_loop_back.push({grid_column_associate_index:grid_column_associate.length, associate:balancer.input_dlvt_a})
-		}
-	}else{
-		start_column = grid_column_associate.indexOf(balancer.input_dlvt_a.targeted_by) + 1
-		grid_column_associate[grid_column_associate.indexOf(balancer.input_dlvt_a.targeted_by)] = balancer.output_dlvt_a
-	}
-	
-	if(!grid_column_associate.includes(balancer.input_dlvt_b.targeted_by)){
-		end_column = grid_column_associate.length + 2
-		if (balancer.input_dlvt_b.targeted_by === null) {
-			grid_column_associate.push(balancer.output_dlvt_b)
-		}else{
-			grid_column_associate_loop_back.push({grid_column_associate_index:grid_column_associate.length, associate:balancer.input_dlvt_b})
-		}
-	}else{
-		end_column = grid_column_associate.indexOf(balancer.input_dlvt_b.targeted_by) + 2
-		grid_column_associate[grid_column_associate.indexOf(balancer.input_dlvt_b.targeted_by)] = balancer.output_dlvt_b
-	}
 
-	const balancer_element = document.createElement('div')
-	balancer_element.className = 'balancer'
-	balancer_element.style.gridColumn = `${start_column}/${end_column}`
-	main_grid.appendChild(balancer_element)
-	
-	console.log(Array.from(grid_column_associate), 'get later', Array.from(grid_column_associate_loop_back))
+	const buttons_container_right = document.createElement('div')
+	buttons_container_right.className = 'adjustable-spanner-buttons-container'
+
+	const button_right_left = document.createElement('div')
+	button_right_left.className = 'adjustable-spanner-button'
+	button_right_left.addEventListener('click', ()=>{grid_column_shift(0, -1, root, min_span)})
+	buttons_container_right.appendChild(button_right_left)
+
+	const button_right_right = document.createElement('div')
+	button_right_right.className = 'adjustable-spanner-button'
+	button_right_right.addEventListener('click', ()=>{grid_column_shift(0, 1, root, min_span)})
+	buttons_container_right.appendChild(button_right_right)
+
+
+	const buttons_container_left = document.createElement('div')
+	buttons_container_left.className = 'adjustable-spanner-buttons-container'
+
+	const button_left_left = document.createElement('div')
+	button_left_left.className = 'adjustable-spanner-button'
+	button_left_left.addEventListener('click', ()=>{grid_column_shift(-1, 0, root, min_span)})
+	buttons_container_left.appendChild(button_left_left)
+
+	const button_left_right = document.createElement('div')
+	button_left_right.className = 'adjustable-spanner-button'
+	button_left_right.addEventListener('click', ()=>{grid_column_shift(1, 0, root, min_span)})
+	buttons_container_left.appendChild(button_left_right)
+
+
+	root.appendChild(buttons_container_left)
+	root.appendChild(buttons_container_right)
+
+	return root
 }
+
+
+
+
+add_input_lane_button.addEventListener('click', ()=>{
+	input_lanes++
+	const new_input_lane = document.createElement('div')
+	new_input_lane.className = 'input-flow-display'
+	new_input_lane.style.gridColumn = `${input_lanes}/${input_lanes+1}`
+	main_grid.appendChild(new_input_lane)
+})
+
+
+
+
+add_row_button.addEventListener('click', ()=>{
+	main_grid.appendChild(create_adjustable_grid_spanner(2, 'balancer'))
+})
+
+
+
+add_loop_back_button.addEventListener('click', ()=>{
+	main_grid.appendChild(create_adjustable_grid_spanner(1, 'loop-back'))
+})
+
+
