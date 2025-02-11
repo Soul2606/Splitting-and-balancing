@@ -316,6 +316,8 @@ class Grid_array{
 	constructor(rows, columns){
 		if (Array.isArray(rows)) {
 			this.grid = rows
+		}else if(rows === undefined){
+			this.grid = []
 		}else if(columns === undefined){
 			this.grid = [rows]
 		}else if(typeof rows === 'number' && typeof columns === 'number'){
@@ -355,28 +357,22 @@ class Grid_array{
 
 	set(row_index, column_index, value){
 		if (row_index < this.grid.length && column_index < this.grid[row_index].length) {
-			return this.grid[row_index][column_index] = value
+			this.grid[row_index][column_index] = value
+			return true
 		}else{
-			console.warn('attempted to set a value at grid index thats out of bounds', row_index, column_index, Array.from(this.grid))
-			return undefined
+			return false
 		}
 	}
 
 	set_forced(row_index, column_index, value){
-		if (row_index < this.grid.length && column_index < this.grid[row_index].length) {
-			this.grid[row_index][column_index] = value
+		if (this.set(row_index, column_index, value)) {
 			return
 		}
-		if (this.grid.length < row_index) {
-			for (let i = this.grid.length; i < row_index + 1; i++) {
-				this.grid.push([])
-			}
+		const row = insert_at_index([], column_index, value)
+		while (this.grid.length <= row_index) {
+			this.grid.push([])
 		}
-		const row = this.grid[row_index]
-		for (let i = row.length; i < column_index; i++) {
-			row.push(null)
-		}
-		row.push(value)
+		this.grid[row_index] = row
 	}
 
 	index_of(item){
@@ -403,16 +399,8 @@ class Grid_array{
 
 
 
-const grid_data_structure = new Grid_array([
-	['a1','a2','a3'],
-	['b1','b2','b3'],
-	['c1','c2','c3']
-])
+const main_grid_data = new Grid_array([[]])
 
-
-
-grid_data_structure.set_forced(4,4,'a4')
-console.log(grid_data_structure)
 
 
 
@@ -423,7 +411,6 @@ const add_input_lane_button = document.getElementById('add-input-lane-button')
 const add_row_button = document.getElementById('add-row-button')
 const add_loop_back_button = document.getElementById('add-loop-back-button')
 
-let input_lanes = 0
 
 
 
@@ -449,7 +436,7 @@ function create_adjustable_grid_spanner(min_span = 1, class_name = '') {
 	const root = document.createElement('div')
 	root.className = 'adjustable-spanner'
 	root.classList.add(class_name)
-	root.style.gridColumn = '1/3'
+	root.style.gridColumn = `${1}/${min_span+1}`
 
 
 	const buttons_container_right = document.createElement('div')
@@ -483,6 +470,16 @@ function create_adjustable_grid_spanner(min_span = 1, class_name = '') {
 	root.appendChild(buttons_container_left)
 	root.appendChild(buttons_container_right)
 
+	
+	const row = []
+	while (row.length < min_span) {
+		row.push(root)
+	}
+	main_grid_data.grid.push(row)
+
+	root.style.gridRow = `${main_grid_data.grid.length + 0}/${main_grid_data.grid.length + 1}`
+
+
 	return root
 }
 
@@ -490,18 +487,23 @@ function create_adjustable_grid_spanner(min_span = 1, class_name = '') {
 
 
 add_input_lane_button.addEventListener('click', ()=>{
-	input_lanes++
+	const first_row = main_grid_data.grid[0]
 	const new_input_lane = document.createElement('div')
 	new_input_lane.className = 'input-flow-display'
-	new_input_lane.style.gridColumn = `${input_lanes}/${input_lanes+1}`
+	new_input_lane.style.gridColumn = `${first_row.length + 1}/${first_row.length + 2}`
+	new_input_lane.style.gridRow = '1/2'
 	main_grid.appendChild(new_input_lane)
+	first_row.push(new_input_lane)
+	console.log(main_grid_data)
 })
 
 
 
 
 add_row_button.addEventListener('click', ()=>{
-	main_grid.appendChild(create_adjustable_grid_spanner(2, 'balancer'))
+	const balancer_element = create_adjustable_grid_spanner(2, 'balancer')
+	main_grid.appendChild(balancer_element)
+	console.log(main_grid_data)
 })
 
 
@@ -509,11 +511,7 @@ add_row_button.addEventListener('click', ()=>{
 add_loop_back_button.addEventListener('click', ()=>{
 	const loop_back = create_adjustable_grid_spanner(1, 'loop-back')
 	main_grid.appendChild(loop_back)
-
-	const loop_back_spot = document.createElement('div')
-	loop_back_spot.className = 'flow-display loop-back-spot'
-	loop_back_spot.style.gridAutoColumns = `${loop_back.style.gridColumnEnd - 1}/${loop_back.style.gridColumnEnd}`
-	main_grid.appendChild(loop_back_spot)
+	console.log(main_grid_data)
 })
 
 
