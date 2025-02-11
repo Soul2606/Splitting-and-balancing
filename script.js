@@ -368,9 +368,14 @@ class Grid_array{
 		if (this.set(row_index, column_index, value)) {
 			return
 		}
-		const row = insert_at_index([], column_index, value)
-		while (this.grid.length <= row_index) {
-			this.grid.push([])
+		let row
+		if (row_index < this.grid.length) {
+			row  = insert_at_index(this.grid[row_index], column_index, value)
+		}else{
+			row = insert_at_index([], column_index, value)
+			while (this.grid.length <= row_index) {
+				this.grid.push([])
+			}
 		}
 		this.grid[row_index] = row
 	}
@@ -425,8 +430,49 @@ function grid_column_shift(shift_start, shift_end, element, min_span = 1){
 		console.log('cancelled condition 2')
 		return
 	}
+
+	const row_index = element.style.gridRowStart-1
+	const column_start_index = element.style.gridColumnStart-1
+	const column_end_index = element.style.gridColumnEnd-1
+
+	if (main_grid_data.grid[row_index][column_end_index+shift_end] !== null && 
+		main_grid_data.grid[row_index][column_end_index+shift_end] !== undefined) {
+		console.log('cancelled condition 3')
+		return		
+	}
+	if (main_grid_data.grid[row_index][column_start_index+shift_start] !== null && 
+		main_grid_data.grid[row_index][column_start_index+shift_start] !== undefined && 
+		shift_start < 0) {
+		console.log('cancelled condition 4')
+		return		
+	}
+
 	element.style.gridColumnStart = Number(element.style.gridColumnStart) + shift_start
 	element.style.gridColumnEnd = Number(element.style.gridColumnEnd) + shift_end
+	
+	//This is hideously complicated
+
+	if (shift_start > 0) {
+		for (let i = column_start_index; i < shift_start + column_start_index; i++) {
+			main_grid_data.set_forced(row_index, i, null)
+		}
+	}else{
+		for (let i = column_start_index + shift_start; i < column_start_index; i++) {
+			main_grid_data.set_forced(row_index, i, element)
+		}
+	}
+
+	if (shift_end > 0) {
+		for (let i = column_end_index; i < column_end_index + shift_end; i++) {
+			main_grid_data.set_forced(row_index, i, element)
+		}
+	}else{
+		for (let i = column_end_index + shift_end; i < column_end_index; i++) {
+			main_grid_data.set_forced(row_index, i, null)
+		}
+	}
+	
+	console.log(main_grid_data.grid)
 }
 
 
@@ -494,7 +540,7 @@ add_input_lane_button.addEventListener('click', ()=>{
 	new_input_lane.style.gridRow = '1/2'
 	main_grid.appendChild(new_input_lane)
 	first_row.push(new_input_lane)
-	console.log(main_grid_data)
+	console.log(main_grid_data.grid)
 })
 
 
@@ -503,7 +549,7 @@ add_input_lane_button.addEventListener('click', ()=>{
 add_row_button.addEventListener('click', ()=>{
 	const balancer_element = create_adjustable_grid_spanner(2, 'balancer')
 	main_grid.appendChild(balancer_element)
-	console.log(main_grid_data)
+	console.log(main_grid_data.grid)
 })
 
 
@@ -511,7 +557,7 @@ add_row_button.addEventListener('click', ()=>{
 add_loop_back_button.addEventListener('click', ()=>{
 	const loop_back = create_adjustable_grid_spanner(1, 'loop-back')
 	main_grid.appendChild(loop_back)
-	console.log(main_grid_data)
+	console.log(main_grid_data.grid)
 })
 
 
