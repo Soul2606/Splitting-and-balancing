@@ -1,5 +1,21 @@
 
 
+
+function insert_at_index(array, index, variable) {
+	if (index < array.length) {
+		array[index] = variable
+	}else{
+		for (let i = array.length; i < index; i++) {
+			array.push(null)
+		} 
+		array.push(variable)
+	}
+	return array
+}
+
+
+
+
 class Balancer{
 	constructor(input_dlvt_a, input_dlvt_b, output_dlvt_a, output_dlvt_b){
 		this.input_dlvt_a = input_dlvt_a
@@ -296,6 +312,107 @@ balancer_2a.output_dlvt_b.set_target(end_c)
 
 
 
+class Grid_array{
+	constructor(rows, columns){
+		if (Array.isArray(rows)) {
+			this.grid = rows
+		}else if(columns === undefined){
+			this.grid = [rows]
+		}else if(typeof rows === 'number' && typeof columns === 'number'){
+			this.grid = []
+			for (let i = 0; i < rows; i++) {
+			    let row = []
+			    for (let j = 0; j < columns; j++) {
+			        row.push(null) // Initialize with null or any default value
+			    }
+			    this.grid.push(row)
+			}
+		}else{
+			this.grid = []
+		}
+	}
+
+	get(row_index, column_index){
+		if (row_index < this.grid.length && column_index < this.grid[row_index].length) {
+			return this.grid[row_index][column_index]
+		}else{
+			console.warn('attempted to reach grid index thats out of bounds', row_index, column_index, Array.from(this.grid))
+			return undefined
+		}
+	}
+
+	get_column(column_index){
+		const column = []
+		for (const row of this.grid) {
+			if (column_index < row.length) {
+				column.push(row[column_index])
+			}else{
+				column.push(undefined)
+			}
+		}
+		return column
+	}
+
+	set(row_index, column_index, value){
+		if (row_index < this.grid.length && column_index < this.grid[row_index].length) {
+			return this.grid[row_index][column_index] = value
+		}else{
+			console.warn('attempted to set a value at grid index thats out of bounds', row_index, column_index, Array.from(this.grid))
+			return undefined
+		}
+	}
+
+	set_forced(row_index, column_index, value){
+		if (row_index < this.grid.length && column_index < this.grid[row_index].length) {
+			this.grid[row_index][column_index] = value
+			return
+		}
+		if (this.grid.length < row_index) {
+			for (let i = this.grid.length; i < row_index + 1; i++) {
+				this.grid.push([])
+			}
+		}
+		const row = this.grid[row_index]
+		for (let i = row.length; i < column_index; i++) {
+			row.push(null)
+		}
+		row.push(value)
+	}
+
+	index_of(item){
+		for (let i = 0; i < this.grid.length; i++) {
+			const row = this.grid[i]
+			const index_of_in_row = row.indexOf(item)
+			if (index_of_in_row !== -1) {
+				return [i,index_of_in_row]
+			}
+		}
+		return -1
+	}
+
+	get_longest_row(){
+		const lengths = []
+		for (const row of this.grid) {
+			lengths.push(row.length)
+		}
+		const max_length = Math.max(...lengths)
+		const index_of_max_length = lengths.indexOf(max_length)
+		return this.grid[index_of_max_length]
+	}
+}
+
+
+
+const grid_data_structure = new Grid_array([
+	['a1','a2','a3'],
+	['b1','b2','b3'],
+	['c1','c2','c3']
+])
+
+
+
+grid_data_structure.set_forced(4,4,'a4')
+console.log(grid_data_structure)
 
 
 
@@ -390,7 +507,13 @@ add_row_button.addEventListener('click', ()=>{
 
 
 add_loop_back_button.addEventListener('click', ()=>{
-	main_grid.appendChild(create_adjustable_grid_spanner(1, 'loop-back'))
+	const loop_back = create_adjustable_grid_spanner(1, 'loop-back')
+	main_grid.appendChild(loop_back)
+
+	const loop_back_spot = document.createElement('div')
+	loop_back_spot.className = 'flow-display loop-back-spot'
+	loop_back_spot.style.gridAutoColumns = `${loop_back.style.gridColumnEnd - 1}/${loop_back.style.gridColumnEnd}`
+	main_grid.appendChild(loop_back_spot)
 })
 
 
