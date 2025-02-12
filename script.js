@@ -1,14 +1,35 @@
 
 
 
-function insert_at_index(array, index, variable) {
-	if (index < array.length) {
-		array[index] = variable
-	}else{
-		for (let i = array.length; i < index; i++) {
-			array.push(null)
-		} 
-		array.push(variable)
+function force_overwrite_at_index(array, index, variable) {
+	while (array.length < index) {
+		array.push(null)
+	}
+	array[index] = variable
+	return array
+}
+
+
+
+
+function force_overwrite_array_from_index(array, array_to_insert, index) {
+	for (let i = index; i < array_to_insert.length + index; i++) {
+		force_overwrite_at_index(array, i, array_to_insert[i])
+	}
+	return array
+}
+
+
+
+
+function tidy_array_right(array){
+	for (let i = array.length - 1; i > 0; i--) {
+		const element = array[i];
+		if (element === null || element === undefined) {
+			array.pop()
+		}else{
+			return array
+		}
 	}
 	return array
 }
@@ -370,9 +391,9 @@ class Grid_array{
 		}
 		let row
 		if (row_index < this.grid.length) {
-			row  = insert_at_index(this.grid[row_index], column_index, value)
+			row  = force_overwrite_at_index(this.grid[row_index], column_index, value)
 		}else{
-			row = insert_at_index([], column_index, value)
+			row = force_overwrite_at_index([], column_index, value)
 			while (this.grid.length <= row_index) {
 				this.grid.push([])
 			}
@@ -400,6 +421,8 @@ class Grid_array{
 		const index_of_max_length = lengths.indexOf(max_length)
 		return this.grid[index_of_max_length]
 	}
+
+	set_elements_css_grid
 }
 
 
@@ -421,19 +444,24 @@ const add_loop_back_button = document.getElementById('add-loop-back-button')
 
 
 function grid_column_shift(shift_start, shift_end, element, min_span = 1){
+	//This function is used to change the element's position on the grid and change the grid data to correlate with the elements grid position. 
+
+	const element_column_start = Number(element.style.gridColumnStart)
+	const element_column_end = Number(element.style.gridColumnEnd)
+	const row_index = element.style.gridRowStart-1
+	const column_start_index = element_column_start-1
+	const column_end_index = element_column_end-1
+
 	console.log('sifting',shift_start,shift_end)
-	if (Number(element.style.gridColumnStart) + shift_start < 1 || Number(element.style.gridColumnStart) + shift_start >= Number(element.style.gridColumnEnd) - (min_span - 1)) {
+	if (element_column_start + shift_start < 1 || element_column_start + shift_start >= element_column_end - (min_span - 1)) {
 		console.log('cancelled condition 1')
 		return
 	}
-	if (Number(element.style.gridColumnEnd) + shift_end <= Number(element.style.gridColumnStart) + min_span - 1) {
+	if (element_column_end + shift_end <= element_column_start + min_span - 1) {
 		console.log('cancelled condition 2')
 		return
 	}
 
-	const row_index = element.style.gridRowStart-1
-	const column_start_index = element.style.gridColumnStart-1
-	const column_end_index = element.style.gridColumnEnd-1
 
 	if (main_grid_data.grid[row_index][column_end_index+shift_end] !== null && 
 		main_grid_data.grid[row_index][column_end_index+shift_end] !== undefined) {
@@ -447,10 +475,8 @@ function grid_column_shift(shift_start, shift_end, element, min_span = 1){
 		return		
 	}
 
-	element.style.gridColumnStart = Number(element.style.gridColumnStart) + shift_start
-	element.style.gridColumnEnd = Number(element.style.gridColumnEnd) + shift_end
-	
-	//This is hideously complicated
+	element.style.gridColumnStart = element_column_start + shift_start
+	element.style.gridColumnEnd = element_column_end + shift_end
 
 	if (shift_start > 0) {
 		for (let i = column_start_index; i < shift_start + column_start_index; i++) {
@@ -472,6 +498,63 @@ function grid_column_shift(shift_start, shift_end, element, min_span = 1){
 		}
 	}
 	
+	console.log(main_grid_data.grid)
+}
+
+
+
+
+function gird_row_shift(shift, element) {
+	console.log('shifting_row', shift)
+	
+	const element_column_start = Number(element.style.gridColumnStart)
+	const element_column_end = Number(element.style.gridColumnEnd)
+	const row_index = element.style.gridRowStart-1
+	const column_start_index = element_column_start-1
+	const column_end_index = element_column_end-1
+
+
+	if (row_index + shift <= 0) {
+		console.log('cancel condition 0')
+		return
+	}
+	if (main_grid_data.grid[row_index].indexOf(element)) {
+		console.log('cancel condition 1')
+		return
+	}
+	if (main_grid_data.grid[row_index].indexOf(element) !== column_start_index) {
+		console.log('cancel condition 2')
+		return
+	}
+	if (main_grid_data.grid[row_index][column_end_index !== element]) {
+		console.log('cancel condition 3')
+		return
+	}
+	if (!main_grid_data.grid[row_index].slice(column_start_index, column_end_index).every(array_element => array_element === element)) {
+		console.log('cancel condition 4')
+		return		
+	}
+
+	function remove(array, element_to_remove) {
+		array.forEach((array_element, index) => {
+			if (array_element === element_to_remove){
+				array[index] = null
+			}
+		})
+	}
+
+	if (main_grid_data.grid[row_index + shift].slice(column_start_index, column_end_index + 1).every(array_element => array_element === null || array_element === undefined)) {
+		console.log('can shift up into row')
+		force_overwrite_array_from_index(main_grid_data.grid[row_index + shift], main_grid_data.grid[row_index].slice(column_start_index, column_end_index + 1), column_start_index)
+		remove(main_grid_data.grid[row_index], element)
+	}else{
+		console.log('cannot shift up into row. new row is created instead')
+		const new_array = tidy_array_right(main_grid_data.grid[row_index].map(array_element=>{return array_element === element?element:null}))
+		remove(main_grid_data.grid[row_index], element)
+		main_grid_data.grid.splice(row_index + shift, 0, new_array)
+	}
+	element.style.gridRowStart = row_index + 1 + shift
+	element.style.gridRowEnd = row_index + 2 + shift
 	console.log(main_grid_data.grid)
 }
 
@@ -513,7 +596,22 @@ function create_adjustable_grid_spanner(min_span = 1, class_name = '') {
 	buttons_container_left.appendChild(button_left_right)
 
 
+	const buttons_container_center = document.createElement('div')
+	buttons_container_center.className = 'adjustable-spanner-buttons-container-center'
+
+	const button_center_up = document.createElement('div')
+	button_center_up.className = 'adjustable-spanner-button'
+	button_center_up.addEventListener('click', ()=>{gird_row_shift(-1, root)})
+	buttons_container_center.appendChild(button_center_up)
+
+	const button_center_down = document.createElement('div')
+	button_center_down.className = 'adjustable-spanner-button'
+	button_center_down.addEventListener('click', ()=>{gird_row_shift(1, root)})
+	buttons_container_center.appendChild(button_center_down)
+
+
 	root.appendChild(buttons_container_left)
+	root.appendChild(buttons_container_center)
 	root.appendChild(buttons_container_right)
 
 	
