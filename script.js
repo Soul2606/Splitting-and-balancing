@@ -37,6 +37,56 @@ function tidy_array_right(array){
 
 
 
+function unique(array) {
+	return Array.from(new Set(array))
+}
+
+
+
+
+function get_duplicate(array) {
+	const found_once = new Set()
+	const found_more_than_once = new Set()
+	for (const element of array) {
+		if (found_once.includes(element)) {
+			found_more_than_once.add(element)
+		}else{
+			found_once.add(element)
+		}
+	}
+	return Array.from(found_more_than_once)
+}
+
+
+
+
+function get_first_occurrence_index(array, value) {
+	for (let i = 0; i < array.length; i++) {
+		const element = array[i]
+		if (element === value) {			
+			return i
+		}
+	}
+	return -1
+}
+
+
+
+
+function get_last_occurrence_index(array, value) {
+	let last_occurrence_index = -1
+	for (let i = 0; i < array.length; i++) {
+		const element = array[i]
+		if (element === value) {			
+			last_occurrence_index = i
+		}
+	}
+	return last_occurrence_index
+}
+
+
+
+
 class Balancer{
 	constructor(input_dlvt_a, input_dlvt_b, output_dlvt_a, output_dlvt_b){
 		this.input_dlvt_a = input_dlvt_a
@@ -422,7 +472,29 @@ class Grid_array{
 		return this.grid[index_of_max_length]
 	}
 
-	set_elements_css_grid
+	set_elements_css_grid(){
+		/* 
+		This function changes an html elements grid style to correlate with the grid data. This logic is simplified by the fact
+		that the element can only ever span 1 row.
+		*/
+		for (let i = 0; i < this.grid.length; i++) {
+			const row = this.grid[i];
+			const all_items_in_row = unique(row)
+			for (const unique_item of all_items_in_row) {
+				if (unique_item === null || !unique_item instanceof HTMLElement) {
+					continue
+				}
+				const first_occurrence = get_first_occurrence_index(row, unique_item)
+				const last_occurrence = get_last_occurrence_index(row, unique_item)
+				console.log(first_occurrence, last_occurrence)
+				unique_item.style.gridColumnStart = first_occurrence + 1
+				unique_item.style.gridColumnEnd = last_occurrence + 2
+				unique_item.style.gridRowStart = i + 1
+				unique_item.style.gridRowEnd = i + 2
+			}
+		}
+		console.log(this.grid)
+	}
 }
 
 
@@ -659,3 +731,7 @@ add_loop_back_button.addEventListener('click', ()=>{
 })
 
 
+
+document.getElementById('debug').addEventListener('click', ()=>{
+	main_grid_data.set_elements_css_grid()
+})
