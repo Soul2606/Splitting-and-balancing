@@ -2,10 +2,6 @@ body{
     background-color: rgb(38, 39, 41);
 }
 
-div{
-    border: solid white 1px;
-}
-
 #main-grid{
     min-width: min-content;
     width: 100%;
@@ -16,6 +12,7 @@ div{
     border-left: solid 1px white;
     padding: 5px;
     margin-bottom: 5px;
+    background-color: darkslateblue;
 }
 
 #add-input-lane-button{
@@ -30,6 +27,7 @@ div{
 #add-row-button{
     height: 50px;
     width: 50px;
+    border: solid white 1px;
 }
 
 #add-row-button:hover{
@@ -39,6 +37,7 @@ div{
 #add-loop-back-button{
     height: 50px;
     width: 50px;
+    border: solid white 1px;
 }
 
 #add-loop-back-button:hover{
@@ -78,4 +77,21 @@ div{
 .adjustable-spanner-button{
     width: 50px;
     height: 50px;
+    border: solid white 1px;
+}
+
+.loop-back-right{
+    background: rgb(50,35,50);
+    background: linear-gradient(90deg, rgba(50,35,50,1) 0%, rgba(229,114,255,1) 100%);
+}
+
+.loop-back-left{
+    background: rgb(229,114,255);
+    background: linear-gradient(90deg, rgba(229,114,255,1) 0%, rgba(50,35,50,1) 100%);
+}
+
+.loop-back-target{
+    height: 50px;
+    border: solid white 1px;
+    background-color: rgb(175, 101, 175);
 }
