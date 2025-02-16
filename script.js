@@ -573,6 +573,26 @@ function create_adjustable_grid_spanner(min_span = 1, class_name = '', function_
 
 
 
+
+setInterval(set_main_grid_width, 200)
+
+function set_main_grid_width(){
+	const main_grid_children = Array.from(main_grid.children)
+	const grid_column_end = main_grid_children.map(element => {
+		// Number(), parseInt(), Number.parseInt() these don't work for some reason but - 1 works?????????
+		const width = (window.getComputedStyle(element).gridColumnEnd) - 1
+		return isNaN(width)?0:width
+	})
+	let largest = Math.max(...grid_column_end)
+	const column_width = 200
+	const gap = 15
+	const padding = 5
+	main_grid.style.width = `${largest * column_width + (largest - 1) * gap + padding * 2}px`
+}
+
+
+
+
 add_input_lane_button.addEventListener('click', ()=>{
 	const new_input_lane = document.createElement('div')
 	new_input_lane.className = 'input-flow-display'
