@@ -1,75 +1,6 @@
 
 
 
-function force_overwrite_at_index(array, index, variable) {
-	while (array.length < index) {
-		array.push(null)
-	}
-	array[index] = variable
-	return array
-}
-
-
-
-
-function force_overwrite_array_from_index(array, array_to_insert, index) {
-	for (let i = index; i < array_to_insert.length + index; i++) {
-		force_overwrite_at_index(array, i, array_to_insert[i])
-	}
-	return array
-}
-
-
-
-
-function unique(array) {
-	return Array.from(new Set(array))
-}
-
-
-
-
-function get_duplicate(array) {
-	const found_once = new Set()
-	const found_more_than_once = new Set()
-	for (const element of array) {
-		if (found_once.includes(element)) {
-			found_more_than_once.add(element)
-		}else{
-			found_once.add(element)
-		}
-	}
-	return Array.from(found_more_than_once)
-}
-
-
-
-
-function get_first_occurrence_index(array, value) {
-	for (let i = 0; i < array.length; i++) {
-		const element = array[i]
-		if (element === value) {			
-			return i
-		}
-	}
-	return -1
-}
-
-
-
-
-function get_last_occurrence_index(array, value) {
-	let last_occurrence_index = -1
-	for (let i = 0; i < array.length; i++) {
-		const element = array[i]
-		if (element === value) {			
-			last_occurrence_index = i
-		}
-	}
-	return last_occurrence_index
-}
-
-
 
 
 function is_css_grid_overlapping(element1, element2) {
@@ -570,6 +501,16 @@ function create_adjustable_grid_spanner(min_span = 1, class_name = '', function_
 	return root
 }
 
+
+
+
+function create_drag_button(distance_threshold, function_to_call) {
+	const root = document.createElement('div')
+	root.className = 'drag-button'
+	root.addEventListener('mousedown', ()=>{
+		
+	})
+}
 
 
 
