@@ -504,17 +504,6 @@ function create_adjustable_grid_spanner(min_span = 1, class_name = '', function_
 
 
 
-function create_drag_button(distance_threshold, function_to_call) {
-	const root = document.createElement('div')
-	root.className = 'drag-button'
-	root.addEventListener('mousedown', ()=>{
-		
-	})
-}
-
-
-
-
 setInterval(set_main_grid_width, 200)
 
 function set_main_grid_width(){
@@ -558,6 +547,24 @@ add_loop_back_button.addEventListener('click', ()=>{
 	loop_back_target.className = 'loop-back-target'
 
 
+	const buttons_container_center = document.createElement('div')
+	buttons_container_center.className = 'adjustable-spanner-buttons-container-center'
+
+	const button_center_up = document.createElement('div')
+	button_center_up.className = 'adjustable-spanner-button'
+	button_center_up.addEventListener('click', ()=>{gird_row_shift(-1, loop_back_target)})
+	buttons_container_center.appendChild(button_center_up)
+
+	const button_center_down = document.createElement('div')
+	button_center_down.className = 'adjustable-spanner-button'
+	button_center_down.addEventListener('click', ()=>{gird_row_shift(1, loop_back_target)})
+	buttons_container_center.appendChild(button_center_down)
+	
+
+	loop_back_target.appendChild(buttons_container_center)
+
+
+
 	let loop_back
 
 	const set_loop_back_target_position = element_that_called=>{
@@ -568,8 +575,10 @@ add_loop_back_button.addEventListener('click', ()=>{
 			loop_back_target.style.gridColumnStart = Number(loop_back.style.gridColumnStart)
 			loop_back_target.style.gridColumnEnd = Number(loop_back.style.gridColumnStart) + 1
 		}
-		loop_back_target.style.gridRowStart = Number(loop_back.style.gridRowStart) - 1
-		loop_back_target.style.gridRowEnd = Number(loop_back.style.gridRowEnd) - 1
+		if (Number(loop_back_target.style.gridRowStart) >= Number(loop_back.style.gridRowStart)) {			
+			loop_back_target.style.gridRowStart = Number(loop_back.style.gridRowStart) - 1
+			loop_back_target.style.gridRowEnd = Number(loop_back.style.gridRowEnd) - 1
+		}
 		if (loop_back_target.style.gridRowStart === '1') {
 			loop_back_target.style.gridRowStart = 2
 			loop_back_target.style.gridRowEnd = 3
@@ -578,6 +587,9 @@ add_loop_back_button.addEventListener('click', ()=>{
 	}
 	
 	loop_back = create_adjustable_grid_spanner(1, 'loop-back loop-back-right', [set_loop_back_target_position])
+
+	loop_back_target.style.gridRowStart = Number(loop_back.style.gridRowStart) - 1
+	loop_back_target.style.gridRowEnd = Number(loop_back.style.gridRowEnd) - 1
 	
 	const flip_loop_back = ()=>{
 		if (loop_back.classList.contains('loop-back-right') && loop_back.classList.contains('loop-back-left')) {
