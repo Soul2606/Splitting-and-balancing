@@ -373,7 +373,7 @@ function grid_column_shift(shift_start, shift_end, element, min_span = 1){
 	const element_column_start = Number(element.style.gridColumnStart)
 	const element_column_end = Number(element.style.gridColumnEnd)
 
-	console.log('sifting',shift_start,shift_end)
+	console.log('sifting',shift_start,shift_end, 'element position:', element_column_start, element_column_end)
 	if (element_column_start + shift_start < 1 || element_column_start + shift_start >= element_column_end - (min_span - 1)) {
 		console.log('cancelled condition 1')
 		return
@@ -396,8 +396,6 @@ function grid_column_shift(shift_start, shift_end, element, min_span = 1){
 function gird_row_shift(shift, element) {
 	console.log('shifting_row', shift)
 	
-	const column_start = Number(element.style.gridColumnStart)
-	const column_end = Number(element.style.gridColumnEnd)
 	const row_start = Number(element.style.gridRowStart)
 	const row_end = Number(element.style.gridRowEnd)
 
@@ -406,6 +404,27 @@ function gird_row_shift(shift, element) {
 
 
 	const main_grid_children = Array.from(main_grid.children)
+
+	//If shifting down, try shifting up the overlapping elements, if there is still overlap then undo and proceed as usual
+	if (shift > 0) {		
+		const overlapping_elements = main_grid_children.filter(child=>is_css_grid_overlapping(child,element)&&child!==element)
+
+		
+		if (overlapping_elements.length > 0) {
+			overlapping_elements.forEach(element=>{
+				const original_row_start = Number(element.style.gridRowStart)
+				const original_row_end = Number(element.style.gridRowEnd)
+				console.log(original_row_start ,original_row_end)
+				element.style.gridRowStart = original_row_start - 1
+				element.style.gridRowEnd = original_row_end - 1
+				//If it is still overlapping with something after moving up, then undo the move
+				if (main_grid_children.some(child=>is_css_grid_overlapping(child,element) && child !== element)) {
+					element.style.gridRowStart = original_row_start
+					element.style.gridRowEnd = original_row_end
+				}
+			})
+		}
+	}
 
 	if (main_grid_children.some(child=>is_css_grid_overlapping(element,child) && element !== child)){
 		prevent_overlap(main_grid_children, [element])
