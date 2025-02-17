@@ -2,6 +2,10 @@ body{
     background-color: rgb(38, 39, 41);
 }
 
+p{
+    color: white;
+}
+
 #main-grid{
     width: 10px;
     min-width: 98%;
@@ -25,24 +29,24 @@ body{
     background-color: darkorange;
 }
 
-#add-row-button{
-    height: 50px;
-    width: 50px;
+#add-balancer-button{
+    padding: 0 15px;
     border: solid white 1px;
-}
-
-#add-row-button:hover{
     background-color: darkolivegreen;
 }
 
+#add-balancer-button:hover{
+    background-color: rgb(119, 150, 66);
+}
+
 #add-loop-back-button{
-    height: 50px;
-    width: 50px;
+    padding: 0 15px;
     border: solid white 1px;
+    background-color: darkorchid;
 }
 
 #add-loop-back-button:hover{
-    background-color: darkorchid;
+    background-color: orchid;
 }
 
 .input-flow-display{
@@ -50,6 +54,7 @@ body{
     min-width: 200px;
     grid-row: 1/2;
     border: solid white 1px;
+    background-color: rgb(55, 177, 224);
 }
 
 .flow-display{

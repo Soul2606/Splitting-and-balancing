@@ -358,7 +358,7 @@ const main_grid = document.getElementById('main-grid')
 
 const add_input_lane_button = document.getElementById('add-input-lane-button')
 
-const add_row_button = document.getElementById('add-row-button')
+const add_row_button = document.getElementById('add-balancer-button')
 const add_loop_back_button = document.getElementById('add-loop-back-button')
 
 let can_drag = true
@@ -573,12 +573,34 @@ function set_main_grid_width(){
 
 
 
+let input_lanes = 0
+
 add_input_lane_button.addEventListener('click', ()=>{
 	const new_input_lane = document.createElement('div')
 	new_input_lane.className = 'input-flow-display'
 	new_input_lane.style.gridRow = '1/2'
+	input_lanes++
+	new_input_lane.style.gridColumn = `${input_lanes}/${input_lanes + 1}`
 	main_grid.appendChild(new_input_lane)
+	new_input_lane.addEventListener('click', remove_input_lane)
 })
+
+
+
+
+function remove_input_lane(){
+	const input_lanes_elements = Array.from(main_grid.children).filter(element=>element.className === 'input-flow-display')
+	const last_input_lane = input_lanes_elements.filter(element=>element.style.gridColumnStart === String(input_lanes))
+	if (last_input_lane.length > 1) {
+		console.warn('more than one last input lane')
+	}
+	if (last_input_lane.length > 0) {		
+		last_input_lane[0].remove()
+		input_lanes--
+	}else{
+		console.warn('No last input lane to remove')
+	}
+}
 
 
 
