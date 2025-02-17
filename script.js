@@ -361,6 +361,8 @@ const add_input_lane_button = document.getElementById('add-input-lane-button')
 const add_row_button = document.getElementById('add-row-button')
 const add_loop_back_button = document.getElementById('add-loop-back-button')
 
+let can_drag = true
+
 
 
 
@@ -415,7 +417,7 @@ function gird_row_shift(shift, element) {
 
 
 
-function create_adjustable_grid_spanner(min_span = 1, class_name = '', function_called_when_any_button_is_clicked) {
+function create_adjustable_grid_spanner(min_span = 1, class_name = '', functions_called_when_grid_shift) {
 	const root = document.createElement('div')
 	root.className = class_name
 	root.classList.add('adjustable-spanner')
@@ -430,74 +432,103 @@ function create_adjustable_grid_spanner(min_span = 1, class_name = '', function_
 	}
 
 
-	const attach_functions_to_event_listeners = (functions, element)=>{
+	const call_functions_with_parameter = (functions, parameter)=>{
 		if (!Array.isArray(functions)) {
 			return
 		}
 		if (functions.length === 0) {
 			return
 		}
-		functions.forEach(listener => {
-			element.addEventListener('click', ()=>{
-				listener(element)
-			})
+		functions.forEach(function_element => {
+			function_element(parameter)
 		})
 	}
 
 
+	const drag_button_right = create_drag_button(100, mouse_position=>{
+		if (mouse_position.x > 0) {
+			grid_column_shift(0,1,root,min_span)
+		}else{
+			grid_column_shift(0,-1,root,min_span)
+		}
+		call_functions_with_parameter(functions_called_when_grid_shift, drag_button_right)
+	})
+	
 
-	const buttons_container_right = document.createElement('div')
-	buttons_container_right.className = 'adjustable-spanner-buttons-container'
-
-	const button_right_left = document.createElement('div')
-	button_right_left.className = 'adjustable-spanner-button'
-	button_right_left.addEventListener('click', ()=>{grid_column_shift(0, -1, root, min_span)})
-	attach_functions_to_event_listeners(function_called_when_any_button_is_clicked, button_right_left)
-	buttons_container_right.appendChild(button_right_left)
-
-	const button_right_right = document.createElement('div')
-	button_right_right.className = 'adjustable-spanner-button'
-	button_right_right.addEventListener('click', ()=>{grid_column_shift(0, 1, root, min_span)})
-	attach_functions_to_event_listeners(function_called_when_any_button_is_clicked, button_right_right)
-	buttons_container_right.appendChild(button_right_right)
-
-
-	const buttons_container_left = document.createElement('div')
-	buttons_container_left.className = 'adjustable-spanner-buttons-container'
-
-	const button_left_left = document.createElement('div')
-	button_left_left.className = 'adjustable-spanner-button'
-	button_left_left.addEventListener('click', ()=>{grid_column_shift(-1, 0, root, min_span)})
-	attach_functions_to_event_listeners(function_called_when_any_button_is_clicked, button_left_left)
-	buttons_container_left.appendChild(button_left_left)
-
-	const button_left_right = document.createElement('div')
-	button_left_right.className = 'adjustable-spanner-button'
-	button_left_right.addEventListener('click', ()=>{grid_column_shift(1, 0, root, min_span)})
-	attach_functions_to_event_listeners(function_called_when_any_button_is_clicked, button_left_right)
-	buttons_container_left.appendChild(button_left_right)
+	const drag_button_left = create_drag_button(100, mouse_position=>{
+		if (mouse_position.x > 0) {
+			grid_column_shift(1,0,root,min_span)
+		}else{
+			grid_column_shift(-1,0,root,min_span)
+		}
+		call_functions_with_parameter(functions_called_when_grid_shift, drag_button_left)
+	})
 
 
-	const buttons_container_center = document.createElement('div')
-	buttons_container_center.className = 'adjustable-spanner-buttons-container-center'
-
-	const button_center_up = document.createElement('div')
-	button_center_up.className = 'adjustable-spanner-button'
-	button_center_up.addEventListener('click', ()=>{gird_row_shift(-1, root)})
-	attach_functions_to_event_listeners(function_called_when_any_button_is_clicked, button_center_up)
-	buttons_container_center.appendChild(button_center_up)
-
-	const button_center_down = document.createElement('div')
-	button_center_down.className = 'adjustable-spanner-button'
-	button_center_down.addEventListener('click', ()=>{gird_row_shift(1, root)})
-	attach_functions_to_event_listeners(function_called_when_any_button_is_clicked, button_center_down)
-	buttons_container_center.appendChild(button_center_down)
+	const drag_button_center = create_drag_button(100, mouse_position=>{
+		if (mouse_position.y > 0) {
+			gird_row_shift(1,root,min_span)
+		}else{
+			gird_row_shift(-1,root,min_span)
+		}
+		call_functions_with_parameter(functions_called_when_grid_shift, drag_button_center)
+	})
 
 
-	root.appendChild(buttons_container_left)
-	root.appendChild(buttons_container_center)
-	root.appendChild(buttons_container_right)
+	root.appendChild(drag_button_left)
+	root.appendChild(drag_button_center)
+	root.appendChild(drag_button_right)
 
+	return root
+}
+
+
+
+
+function create_drag_button(distance_threshold, function_attached, class_name = '') {
+
+	if (typeof distance_threshold !== 'number' || typeof function_attached !== 'function' || typeof class_name !== 'string') {
+		throw new Error("Invalid parameters: ", distance_threshold, function_attached);	
+	}
+
+	const root = document.createElement('div')
+	root.className = class_name
+	root.classList.add('drag-button')
+
+	//Mouse down event
+	root.addEventListener('mousedown', e=>{
+		if (!can_drag) {
+			return
+		}
+		e.preventDefault()
+		let was_inside_threshold = false
+		
+		// Mouse move event
+		const mouse_move_event = e=>{
+			const rect = root.getBoundingClientRect()
+			const element_center_position = {x:rect.left + rect.width / 2, y:rect.top + rect.height / 2}
+			const mouse_position = {x:e.clientX,y:e.clientY}
+			const distance = Math.sqrt((mouse_position.x - element_center_position.x)**2 + (mouse_position.y - element_center_position.y)**2)
+
+			if (distance > distance_threshold) {
+				if (was_inside_threshold) {	
+					const relative_mouse_position_normalized = {x:(mouse_position.x - element_center_position.x) / distance_threshold, y:(mouse_position.y - element_center_position.y) / distance_threshold}
+					function_attached(relative_mouse_position_normalized)
+				}
+				was_inside_threshold = false
+			}else{
+				was_inside_threshold = true
+			}
+		}
+		window.addEventListener('mousemove', mouse_move_event)
+
+		//Mouse up event
+		const remove_event_listeners = ()=>{
+			window.removeEventListener('mousemove', mouse_move_event)
+			window.removeEventListener('mouseup', remove_event_listeners)
+		}
+		window.addEventListener('mouseup', remove_event_listeners)
+	})
 	return root
 }
 
