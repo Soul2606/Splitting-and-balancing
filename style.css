@@ -71,14 +71,14 @@ p{
 
 .adjustable-spanner{
     min-height: 100px;
+}
+
+.adjustable-spanner-button-container{
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 0 5px;
-}
-
-.adjustable-spanner-buttons-container{
-    display: flex;
+    margin: 5px 0;
 }
 
 .adjustable-spanner-button{
@@ -111,4 +111,21 @@ p{
     width: 50px;
     height: 50px;
     border: solid white 1px;
+}
+
+.balancer-flow-display-container{
+    display: flex;
+    justify-content: space-between;
+}
+
+.balancer-flow-display{
+    box-sizing: border-box;
+    height: 20px;
+    width: 200px;
+    border: solid white 1px;
+    background-color: rgb(55, 177, 224);
+}
+
+.balancer-flow-display-disabled{
+    background-color: gray;
 }

@@ -358,7 +358,7 @@ const main_grid = document.getElementById('main-grid')
 
 const add_input_lane_button = document.getElementById('add-input-lane-button')
 
-const add_row_button = document.getElementById('add-balancer-button')
+const add_balancer_button = document.getElementById('add-balancer-button')
 const add_loop_back_button = document.getElementById('add-loop-back-button')
 
 let can_drag = true
@@ -451,6 +451,11 @@ function create_adjustable_grid_spanner(min_span = 1, class_name = '', functions
 	}
 
 
+	const drag_button_container = document.createElement('div')
+	drag_button_container.className = 'adjustable-spanner-button-container'
+	root.appendChild(drag_button_container)
+
+
 	const call_functions_with_parameter = (functions, parameter)=>{
 		if (!Array.isArray(functions)) {
 			return
@@ -494,9 +499,9 @@ function create_adjustable_grid_spanner(min_span = 1, class_name = '', functions
 	})
 
 
-	root.appendChild(drag_button_left)
-	root.appendChild(drag_button_center)
-	root.appendChild(drag_button_right)
+	drag_button_container.appendChild(drag_button_left)
+	drag_button_container.appendChild(drag_button_center)
+	drag_button_container.appendChild(drag_button_right)
 
 	return root
 }
@@ -605,8 +610,41 @@ function remove_input_lane(){
 
 
 
-add_row_button.addEventListener('click', ()=>{
+add_balancer_button.addEventListener('click', ()=>{
 	const balancer_element = create_adjustable_grid_spanner(2, 'balancer')
+
+	const toggle_balancer_output = (element)=>{
+		element.classList.toggle('balancer-flow-display-disabled')
+	}
+
+	const create_balancer_flow_display = (input)=>{
+		const root = document.createElement('div')
+		if (input) {
+			root.className = 'balancer-flow-display-input'
+		}else{
+			root.className = 'balancer-flow-display-output'
+			root.addEventListener('click', ()=>{toggle_balancer_output(root)})
+		}
+		root.classList.add('balancer-flow-display')
+		return root
+	}
+
+	const create_balancer_flow_display_container = (input)=>{
+		const root = document.createElement('div')
+		root.className = 'balancer-flow-display-container'
+
+		root.appendChild(create_balancer_flow_display(input))
+		root.appendChild(create_balancer_flow_display(input))
+
+		return root
+	}
+
+	const balancer_flow_display_container_top = create_balancer_flow_display_container(true)
+	insert_child_at_index(balancer_element, balancer_flow_display_container_top, 0)
+	
+	const balancer_flow_display_container_bottom = create_balancer_flow_display_container(false)
+	balancer_element.appendChild(balancer_flow_display_container_bottom)
+
 	main_grid.appendChild(balancer_element)
 })
 
@@ -676,7 +714,7 @@ add_loop_back_button.addEventListener('click', ()=>{
 	flip_button.className = 'loop-back-flip-button adjustable-spanner-button'
 	flip_button.addEventListener('click', flip_loop_back)
 	flip_button.addEventListener('click', set_loop_back_target_position)
-	insert_child_at_index(loop_back, flip_button, 2)
+	insert_child_at_index(Array.from(loop_back.children)[0], flip_button, 2)
 
 
 	main_grid.appendChild(loop_back)
