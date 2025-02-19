@@ -24,6 +24,18 @@ function is_css_grid_overlapping(element1, element2) {
 
 
 
+function is_css_grid_overlapping_primitive(column_start1,column_end1,row_start1,row_end1,column_start2,column_end2,row_start2,row_end2) {
+
+	// Check if the elements overlap
+	const columns_overlap = column_start1 < column_end2 && column_end1 > column_start2
+	const rows_overlap = row_start1 < row_end2 && row_end1 > row_start2
+
+	return columns_overlap && rows_overlap
+}
+
+
+
+
 function insert_child_at_index(parent, newChild, index) {
 	const children = parent.children;
 	if (index >= children.length) {
@@ -367,6 +379,25 @@ let can_drag = true
 
 
 
+function filter_function_for_tracing_lane_connections(element){
+	if (element === flow_visualizer) {
+		return false
+	}
+	if (element.classList.contains('loop-back')) {
+		if (element.classList.contains('loop-back-right')) {
+			return is_css_grid_overlapping_primitive(element.style.gridColumnStart, Number(element.style.gridColumnStart)+1, element.style.gridRowStart, element.style.gridRowEnd, flow_visualizer.style.gridColumnStart, flow_visualizer.style.gridColumnEnd, flow_visualizer.style.gridRowStart, flow_visualizer.style.gridRowEnd)
+		}else{
+			return is_css_grid_overlapping_primitive(Number(element.style.gridColumnEnd)-1, element.style.gridColumnEnd, element.style.gridRowStart, element.style.gridRowEnd, flow_visualizer.style.gridColumnStart, flow_visualizer.style.gridColumnEnd, flow_visualizer.style.gridRowStart, flow_visualizer.style.gridRowEnd)
+		}
+	}else{
+		return is_css_grid_overlapping_primitive(element.style.gridColumnStart, Number(element.style.gridColumnStart)+1, element.style.gridRowStart, element.style.gridRowEnd, flow_visualizer.style.gridColumnStart, flow_visualizer.style.gridColumnEnd, flow_visualizer.style.gridRowStart, flow_visualizer.style.gridRowEnd) ||
+		is_css_grid_overlapping_primitive(Number(element.style.gridColumnEnd)-1, element.style.gridColumnEnd, element.style.gridRowStart, element.style.gridRowEnd, flow_visualizer.style.gridColumnStart, flow_visualizer.style.gridColumnEnd, flow_visualizer.style.gridRowStart, flow_visualizer.style.gridRowEnd)
+	}
+}
+
+
+
+
 function grid_column_shift(shift_start, shift_end, element, min_span = 1){
 	//This function is used to change the element's position on the grid and change the grid data to correlate with the elements grid position. 
 
@@ -559,6 +590,62 @@ function create_drag_button(distance_threshold, function_attached, class_name = 
 
 
 
+function create_flow_visualizer(start_from_row, start_in_column, trace_up) {
+	if (typeof start_from_row !== 'number' || typeof start_in_column !== 'number' || typeof trace_up !== 'boolean') {
+		throw new Error("invalid parameters");
+	}
+	const all_adjustable_spanners = Array.from(main_grid.children).filter(element=>element.classList.contains('adjustable-spanner'))
+	const flow_visualizer = create_flow_visualizer_line(start_in_column, start_from_row, start_from_row)
+	console.log('start_from_row:',start_from_row, ' start_in_column:',start_in_column, ' trace_up:',trace_up)
+
+
+	if (trace_up) {
+		console.log('trace up')
+		while (flow_visualizer.style.gridRowStart > 2) {
+			flow_visualizer.style.gridRowStart = Number(flow_visualizer.style.gridRowStart) - 1
+			const overlapping_elements = all_adjustable_spanners.filter(filter_function_for_tracing_lane_connections)
+			if (overlapping_elements.length > 0) {
+				flow_visualizer.style.gridRowStart = Number(flow_visualizer.style.gridRowStart) + 1
+				console.log('overlap detected')
+				break
+			}
+		}
+	}else{
+		console.log('trace down')
+		const lowest_row = Math.max.apply(null, all_adjustable_spanners.map(element=>Number(element.style.gridRowEnd)))
+		console.log('lowest_row:',lowest_row)
+		while (flow_visualizer.style.gridRowEnd < lowest_row) {
+			flow_visualizer.style.gridRowEnd = Number(flow_visualizer.style.gridRowEnd) + 1
+			const overlapping_elements = all_adjustable_spanners.filter(filter_function_for_tracing_lane_connections)
+			if (overlapping_elements.length > 0) {
+				flow_visualizer.style.gridRowEnd = Number(flow_visualizer.style.gridRowEnd) - 1
+				console.log('overlap detected')
+				break
+			}
+		}
+	}
+	console.log('loop done')
+	console.log(flow_visualizer)
+	if (flow_visualizer.style.gridRowStart === flow_visualizer.style.gridRowEnd) {
+		flow_visualizer.style.display = 'none'
+	}
+	main_grid.appendChild(flow_visualizer)
+	return flow_visualizer
+}
+
+
+
+
+function create_flow_visualizer_line(column, row_start, row_end) {
+	const root = document.createElement('div')
+	root.className = 'flow-visualizer'
+	root.style.gridArea = `${row_start}/${column}/${row_end}/${column+1}`
+	return root
+}
+
+
+
+
 setInterval(set_main_grid_width, 200)
 
 function set_main_grid_width(){
@@ -617,7 +704,7 @@ add_balancer_button.addEventListener('click', ()=>{
 		element.classList.toggle('balancer-flow-display-disabled')
 	}
 
-	const create_balancer_flow_display = (input)=>{
+	const create_balancer_flow_display = (input, right_side)=>{
 		const root = document.createElement('div')
 		if (input) {
 			root.className = 'balancer-flow-display-input'
@@ -625,6 +712,11 @@ add_balancer_button.addEventListener('click', ()=>{
 			root.className = 'balancer-flow-display-output'
 			root.addEventListener('click', ()=>{toggle_balancer_output(root)})
 		}
+		let flow_visualizer
+		root.addEventListener('mouseenter', ()=>{
+			flow_visualizer = create_flow_visualizer(Number(input?balancer_element.style.gridRowStart:balancer_element.style.gridRowEnd), right_side?Number(balancer_element.style.gridColumnEnd)-1:Number(balancer_element.style.gridColumnStart), input)
+		})
+		root.addEventListener('mouseleave', ()=>{flow_visualizer.remove()})
 		root.classList.add('balancer-flow-display')
 		return root
 	}
@@ -633,8 +725,8 @@ add_balancer_button.addEventListener('click', ()=>{
 		const root = document.createElement('div')
 		root.className = 'balancer-flow-display-container'
 
-		root.appendChild(create_balancer_flow_display(input))
-		root.appendChild(create_balancer_flow_display(input))
+		root.appendChild(create_balancer_flow_display(input, false))
+		root.appendChild(create_balancer_flow_display(input, true))
 
 		return root
 	}
