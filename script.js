@@ -379,19 +379,19 @@ let can_drag = true
 
 
 
-function filter_function_for_tracing_lane_connections(element){
-	if (element === flow_visualizer) {
+function filter_function_for_tracing_lane_connections(element1, element2){
+	if (element1 === element2) {
 		return false
 	}
-	if (element.classList.contains('loop-back')) {
-		if (element.classList.contains('loop-back-right')) {
-			return is_css_grid_overlapping_primitive(element.style.gridColumnStart, Number(element.style.gridColumnStart)+1, element.style.gridRowStart, element.style.gridRowEnd, flow_visualizer.style.gridColumnStart, flow_visualizer.style.gridColumnEnd, flow_visualizer.style.gridRowStart, flow_visualizer.style.gridRowEnd)
+	if (element1.classList.contains('loop-back')) {
+		if (element1.classList.contains('loop-back-right')) {
+			return is_css_grid_overlapping_primitive(element1.style.gridColumnStart, Number(element1.style.gridColumnStart)+1, element1.style.gridRowStart, element1.style.gridRowEnd, element2.style.gridColumnStart, element2.style.gridColumnEnd, element2.style.gridRowStart, element2.style.gridRowEnd)
 		}else{
-			return is_css_grid_overlapping_primitive(Number(element.style.gridColumnEnd)-1, element.style.gridColumnEnd, element.style.gridRowStart, element.style.gridRowEnd, flow_visualizer.style.gridColumnStart, flow_visualizer.style.gridColumnEnd, flow_visualizer.style.gridRowStart, flow_visualizer.style.gridRowEnd)
+			return is_css_grid_overlapping_primitive(Number(element1.style.gridColumnEnd)-1, element1.style.gridColumnEnd, element1.style.gridRowStart, element1.style.gridRowEnd, element2.style.gridColumnStart, element2.style.gridColumnEnd, element2.style.gridRowStart, element2.style.gridRowEnd)
 		}
 	}else{
-		return is_css_grid_overlapping_primitive(element.style.gridColumnStart, Number(element.style.gridColumnStart)+1, element.style.gridRowStart, element.style.gridRowEnd, flow_visualizer.style.gridColumnStart, flow_visualizer.style.gridColumnEnd, flow_visualizer.style.gridRowStart, flow_visualizer.style.gridRowEnd) ||
-		is_css_grid_overlapping_primitive(Number(element.style.gridColumnEnd)-1, element.style.gridColumnEnd, element.style.gridRowStart, element.style.gridRowEnd, flow_visualizer.style.gridColumnStart, flow_visualizer.style.gridColumnEnd, flow_visualizer.style.gridRowStart, flow_visualizer.style.gridRowEnd)
+		return is_css_grid_overlapping_primitive(element1.style.gridColumnStart, Number(element1.style.gridColumnStart)+1, element1.style.gridRowStart, element1.style.gridRowEnd, element2.style.gridColumnStart, element2.style.gridColumnEnd, element2.style.gridRowStart, element2.style.gridRowEnd) ||
+		is_css_grid_overlapping_primitive(Number(element1.style.gridColumnEnd)-1, element1.style.gridColumnEnd, element1.style.gridRowStart, element1.style.gridRowEnd, element2.style.gridColumnStart, element2.style.gridColumnEnd, element2.style.gridRowStart, element2.style.gridRowEnd)
 	}
 }
 
@@ -590,7 +590,33 @@ function create_drag_button(distance_threshold, function_attached, class_name = 
 
 
 
+function trace_down(column_to_trace, start_trace_form_row, elements_tracked) {			
+	console.log('trace down')
+	console.log(column_to_trace, start_trace_form_row, elements_tracked)
+	const lowest_row = Math.max.apply(null, elements_tracked.map(element=>Number(element.style.gridRowEnd)))
+	let row = start_trace_form_row
+	while (row < lowest_row) {
+		row++
+		const fake_element = {style:{
+			gridColumnStart:String(column_to_trace),
+			gridColumnEnd:String(column_to_trace+1),
+			gridRowStart:String(start_trace_form_row),
+			gridRowEnd:String(row)
+		}}
+		const overlapping_elements = elements_tracked.filter(element=>{return filter_function_for_tracing_lane_connections(element, fake_element)})
+		if (overlapping_elements.length > 0) {
+			console.log('overlap detected')
+			return overlapping_elements
+		}
+	}
+	return []
+}
+
+
+
+
 function create_flow_visualizer(start_from_row, start_in_column, trace_up) {
+	console.groupCollapsed('create flow visualizer')
 	if (typeof start_from_row !== 'number' || typeof start_in_column !== 'number' || typeof trace_up !== 'boolean') {
 		throw new Error("invalid parameters");
 	}
@@ -603,7 +629,7 @@ function create_flow_visualizer(start_from_row, start_in_column, trace_up) {
 		console.log('trace up')
 		while (flow_visualizer.style.gridRowStart > 2) {
 			flow_visualizer.style.gridRowStart = Number(flow_visualizer.style.gridRowStart) - 1
-			const overlapping_elements = all_adjustable_spanners.filter(filter_function_for_tracing_lane_connections)
+			const overlapping_elements = all_adjustable_spanners.filter(element=>{return filter_function_for_tracing_lane_connections(element, flow_visualizer)})
 			if (overlapping_elements.length > 0) {
 				flow_visualizer.style.gridRowStart = Number(flow_visualizer.style.gridRowStart) + 1
 				console.log('overlap detected')
@@ -611,17 +637,12 @@ function create_flow_visualizer(start_from_row, start_in_column, trace_up) {
 			}
 		}
 	}else{
-		console.log('trace down')
 		const lowest_row = Math.max.apply(null, all_adjustable_spanners.map(element=>Number(element.style.gridRowEnd)))
-		console.log('lowest_row:',lowest_row)
-		while (flow_visualizer.style.gridRowEnd < lowest_row) {
-			flow_visualizer.style.gridRowEnd = Number(flow_visualizer.style.gridRowEnd) + 1
-			const overlapping_elements = all_adjustable_spanners.filter(filter_function_for_tracing_lane_connections)
-			if (overlapping_elements.length > 0) {
-				flow_visualizer.style.gridRowEnd = Number(flow_visualizer.style.gridRowEnd) - 1
-				console.log('overlap detected')
-				break
-			}
+		const hit_elements = trace_down(start_in_column, start_from_row, all_adjustable_spanners)
+		if (hit_elements.length > 0) {
+			flow_visualizer.style.gridRowEnd = hit_elements[0].style.gridRowStart
+		}else{
+			flow_visualizer.style.gridRowEnd = lowest_row
 		}
 	}
 	console.log('loop done')
@@ -630,6 +651,7 @@ function create_flow_visualizer(start_from_row, start_in_column, trace_up) {
 		flow_visualizer.style.display = 'none'
 	}
 	main_grid.appendChild(flow_visualizer)
+	console.groupEnd()
 	return flow_visualizer
 }
 
@@ -742,6 +764,7 @@ add_balancer_button.addEventListener('click', ()=>{
 
 
 
+
 add_loop_back_button.addEventListener('click', ()=>{
 
 
@@ -815,6 +838,70 @@ add_loop_back_button.addEventListener('click', ()=>{
 	set_loop_back_target_position()
 
 })
+
+
+
+
+
+
+function compile_main_grid_elements_layout() {
+
+	const all_balancer_elements = Array.from(main_grid.children).filter(element=>element.classList.contains('balancer'))
+	const all_adjustable_spanners = Array.from(main_grid.children).filter(element=>element.classList.contains('adjustable-spanner'))
+	const data = []
+
+	for (let i = 0; i < all_balancer_elements.length; i++) {
+		const element = all_balancer_elements[i];
+		const results = create_balancer()
+		data.push({element:element, balancer:results})
+		
+	}
+	
+	console.log('data', data)
+	console.log('all_adjustable_spanners', all_adjustable_spanners)
+	
+	for (let i = 0; i < all_balancer_elements.length; i++) {
+		const element = all_balancer_elements[i]
+		console.log(element)
+
+		const hit_elements_left = trace_down(Number(element.style.gridColumnStart), Number(element.style.gridRowEnd), all_balancer_elements)
+		console.log('hit elements left', hit_elements_left)
+		if (hit_elements_left.length > 1) {
+			console.warn('hit more than one element', hit_elements_left)
+		}
+		if (hit_elements_left.length > 0) {
+			const data_filtered = data.filter(data_item=>data_item.element === hit_elements_left[0])
+			if (data_filtered.length > 1) {
+				console.warn('data contains duplicate elements', data_filtered)
+			}
+			if (data_filtered.length === 0) {
+				throw new Error("Could not find hit element in data", data);
+				
+			}
+			console.log(data_filtered[0].balancer.input_dlvt_a)
+		}
+		
+		const hit_elements_right = trace_down(Number(element.style.gridColumnEnd) - 1, Number(element.style.gridRowEnd), all_adjustable_spanners)
+		console.log('hit elements right', hit_elements_right)
+		if (hit_elements_right.length > 1) {
+			console.warn('hit more than one element', hit_elements_right)
+		}
+		if (hit_elements_right.length > 0) {
+			const data_filtered = data.filter(data_item=>data_item.element === hit_elements_right[0])
+			if (data_filtered.length > 1) {
+				console.warn('data contains duplicate elements', data_filtered)
+			}
+			if (data_filtered.length === 0) {
+				throw new Error("Could not find hit element in data", data);
+				
+			}
+			console.log(data_filtered[0].balancer.input_dlvt_b)
+		}
+	}
+}
+
+
+document.getElementById('compile-button').addEventListener('click',compile_main_grid_elements_layout)
 
 
 
