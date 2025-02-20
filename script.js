@@ -332,28 +332,9 @@ function execute_transfer_on_all_dlvt_chains(all_dlvts){
 
 
 
-const start_a = new Doubly_linked_variable_transporter('A')
-const start_b = new Doubly_linked_variable_transporter('B')
-const end_a = new Doubly_linked_variable_transporter('')
-const end_b = new Doubly_linked_variable_transporter('')
-const end_c = new Doubly_linked_variable_transporter('')
 
-const start_dlvts = [start_a, start_b]
+const all_dlvts = []
 
-const all_dlvts = [start_a, start_b, end_a, end_b, end_c]
-
-const balancer_1a = create_balancer()
-
-const balancer_2a = create_balancer()
-
-const all_balancers = [balancer_1a, balancer_2a]
-
-start_a.set_target(balancer_1a.input_dlvt_a)
-start_b.set_target(balancer_1a.input_dlvt_b)
-balancer_1a.output_dlvt_a.set_target(end_a)
-balancer_1a.output_dlvt_b.set_target(balancer_2a.input_dlvt_a)
-balancer_2a.output_dlvt_a.set_target(end_b)
-balancer_2a.output_dlvt_b.set_target(end_c)
 
 
 
@@ -367,6 +348,8 @@ balancer_2a.output_dlvt_b.set_target(end_c)
 
 
 const main_grid = document.getElementById('main-grid')
+
+const all_loop_back_elements_and_target = []
 
 const add_input_lane_button = document.getElementById('add-input-lane-button')
 
@@ -592,7 +575,6 @@ function create_drag_button(distance_threshold, function_attached, class_name = 
 
 function trace_down(column_to_trace, start_trace_form_row, elements_tracked) {			
 	console.log('trace down')
-	console.log(column_to_trace, start_trace_form_row, elements_tracked)
 	const lowest_row = Math.max.apply(null, elements_tracked.map(element=>Number(element.style.gridRowEnd)))
 	let row = start_trace_form_row
 	while (row < lowest_row) {
@@ -605,7 +587,6 @@ function trace_down(column_to_trace, start_trace_form_row, elements_tracked) {
 		}}
 		const overlapping_elements = elements_tracked.filter(element=>{return filter_function_for_tracing_lane_connections(element, fake_element)})
 		if (overlapping_elements.length > 0) {
-			console.log('overlap detected')
 			return overlapping_elements
 		}
 	}
@@ -834,6 +815,7 @@ add_loop_back_button.addEventListener('click', ()=>{
 
 	main_grid.appendChild(loop_back)
 	main_grid.appendChild(loop_back_target)
+	all_loop_back_elements_and_target.push({element:loop_back, target:loop_back_target})
 
 	set_loop_back_target_position()
 
@@ -848,7 +830,9 @@ function compile_main_grid_elements_layout() {
 
 	const all_balancer_elements = Array.from(main_grid.children).filter(element=>element.classList.contains('balancer'))
 	const all_adjustable_spanners = Array.from(main_grid.children).filter(element=>element.classList.contains('adjustable-spanner'))
+	//Data for element and its corresponding balancer
 	const data = []
+	const hanging_dlvts_and_elements = []
 
 	for (let i = 0; i < all_balancer_elements.length; i++) {
 		const element = all_balancer_elements[i];
@@ -858,46 +842,84 @@ function compile_main_grid_elements_layout() {
 	}
 	
 	console.log('data', data)
-	console.log('all_adjustable_spanners', all_adjustable_spanners)
 	
 	for (let i = 0; i < all_balancer_elements.length; i++) {
 		const element = all_balancer_elements[i]
 		console.log(element)
 
-		const hit_elements_left = trace_down(Number(element.style.gridColumnStart), Number(element.style.gridRowEnd), all_balancer_elements)
-		console.log('hit elements left', hit_elements_left)
-		if (hit_elements_left.length > 1) {
-			console.warn('hit more than one element', hit_elements_left)
+		const data_of_self = data.filter(data_item => data_item.element === element);
+		if (data_of_self.length > 1) {
+			console.warn('data contains duplicate elements', data_of_self);
 		}
-		if (hit_elements_left.length > 0) {
-			const data_filtered = data.filter(data_item=>data_item.element === hit_elements_left[0])
-			if (data_filtered.length > 1) {
-				console.warn('data contains duplicate elements', data_filtered)
-			}
-			if (data_filtered.length === 0) {
-				throw new Error("Could not find hit element in data", data);
-				
-			}
-			console.log(data_filtered[0].balancer.input_dlvt_a)
+		if (data_of_self.length === 0) {
+			throw new Error("Could not find hit element in data", data);
 		}
+		console.log('data_of_self:', data_of_self)
+
+		trace_and_assemble_dlvt_chains(data_of_self[0], element.style.gridColumnStart, element.style.gridRowEnd, true);
 		
-		const hit_elements_right = trace_down(Number(element.style.gridColumnEnd) - 1, Number(element.style.gridRowEnd), all_adjustable_spanners)
-		console.log('hit elements right', hit_elements_right)
-		if (hit_elements_right.length > 1) {
-			console.warn('hit more than one element', hit_elements_right)
+		trace_and_assemble_dlvt_chains(data_of_self[0], Number(element.style.gridColumnEnd) - 1, element.style.gridRowEnd, false)
+
+	}
+
+	function trace_and_assemble_dlvt_chains(traced_from_element_data, column, row, traced_from_left_side) {
+		const hit_elements = trace_down(Number(column), Number(row), all_adjustable_spanners);
+		console.log('hit elements', hit_elements);
+		if (hit_elements.length > 1) {
+			console.warn('hit more than one element', hit_elements);
 		}
-		if (hit_elements_right.length > 0) {
-			const data_filtered = data.filter(data_item=>data_item.element === hit_elements_right[0])
-			if (data_filtered.length > 1) {
-				console.warn('data contains duplicate elements', data_filtered)
+		if (hit_elements.length > 0) {
+			if (hit_elements[0].classList.contains('balancer')) {
+				const data_filtered = data.filter(data_item => data_item.element === hit_elements[0]);
+				if (data_filtered.length > 1) {
+					console.warn('data contains duplicate elements', data_filtered);
+				}
+				if (data_filtered.length === 0) {
+					throw new Error("Could not find hit element in data", data);
+				}
+				const hit_element_data = data_filtered[0]
+				const hit_left_side = column === hit_element_data.element.style.gridColumnStart
+				console.log('hit_element_data:', hit_element_data, ' hit_left_side:', hit_left_side);
+				//If it didn't hit left side, assume right side
+				if (hit_left_side) {
+					if (traced_from_left_side) {
+						console.log(traced_from_element_data.balancer.output_dlvt_a.set_target(hit_element_data.balancer.input_dlvt_a))
+					}else{
+						console.log(traced_from_element_data.balancer.output_dlvt_b.set_target(hit_element_data.balancer.input_dlvt_a))
+					}
+				}else{
+					if (traced_from_left_side) {
+						console.log(traced_from_element_data.balancer.output_dlvt_a.set_target(hit_element_data.balancer.input_dlvt_b))
+					}else{
+						console.log(traced_from_element_data.balancer.output_dlvt_b.set_target(hit_element_data.balancer.input_dlvt_b))
+					}
+				}
+			} else if (hit_elements[0].classList.contains('loop-back')) {
+				// If hit a loop back
+				console.log('hit a loop back. more logic goes here soon')
+				const all_loop_back_elements_and_target_filtered = all_loop_back_elements_and_target.filter(element=>element.element === hit_elements[0])
+				if (all_loop_back_elements_and_target_filtered.length > 1) {
+					console.warn('data contains duplicate elements', all_loop_back_elements_and_target_filtered);
+				}
+				if (all_loop_back_elements_and_target_filtered.length === 0) {
+					throw new Error("Could not find hit element in data", data);
+				}
+				const loop_back_target = all_loop_back_elements_and_target_filtered[0].target
+				trace_and_assemble_dlvt_chains(traced_from_element_data, loop_back_target.style.gridColumnStart, loop_back_target.style.gridRowEnd, traced_from_left_side)
+			} else {
+				console.warn('hit something unexpected, stopping chian', hit_elements)
 			}
-			if (data_filtered.length === 0) {
-				throw new Error("Could not find hit element in data", data);
-				
+		}else{
+			//If nothing was hit, save the dlvt as hanging.
+			if (traced_from_left_side) {
+				hanging_dlvts_and_elements.push({dlvt:traced_from_element_data.balancer.output_dlvt_a, element:traced_from_element_data.element})
+			}else{
+				hanging_dlvts_and_elements.push({dlvt:traced_from_element_data.balancer.output_dlvt_b, element:traced_from_element_data.element})
 			}
-			console.log(data_filtered[0].balancer.input_dlvt_b)
 		}
 	}
+
+	console.log('hanging_dlvts_and_elements:', hanging_dlvts_and_elements)
 }
 
 
