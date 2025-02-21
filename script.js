@@ -268,6 +268,7 @@ class Doubly_linked_variable_transporter{
 		this.pending_item_to_send = null
 		this.pending_send_to = null
 		this.pending_receive_from = null
+		this.transfer_target.pending_receive_from = null
 		results.info.chain.unshift({reference:this, success:can_transfer})
 		results.success = can_transfer
 		return results
@@ -337,10 +338,15 @@ function create_balancer() {
 function execute_transfer_on_all_dlvt_chains(all_dlvts){
 	const all_transfers_info = []
 	const unexecuted_dlvts = Array.from(all_dlvts)
-	let failsafe = 1000
+	let failsafe = 10000
 
 	while (unexecuted_dlvts.length > 0 && failsafe > 0) {
-		const transfer_info = unexecuted_dlvts[0].transfer_recursively()
+		const search_results = unexecuted_dlvts[0].search(unexecuted_dlvts[0])
+		console.log('search results', search_results)
+		const dlvt_to_start_transfer_from = search_results.set.values().next().value
+		console.log('dlvt_to_start_transfer_from', dlvt_to_start_transfer_from)
+		const transfer_info = dlvt_to_start_transfer_from.transfer_recursively()
+		console.log('transfer info', transfer_info)
 		all_transfers_info.push(transfer_info)
 		const dlvt_chain_array = transfer_info.info.chain
 		for (let i = 0; i < dlvt_chain_array.length; i++) {
@@ -858,11 +864,17 @@ add_loop_back_button.addEventListener('click', ()=>{
 
 
 
+const simulation_results = {}
 
 
 function compile_main_grid_elements_layout() {
 
 	delete_all_dlvts()
+	for (const key in simulation_results) {
+		if (Object.prototype.hasOwnProperty.call(simulation_results, key)) {
+			delete simulation_results[key];
+		}
+	}
 
 	const all_balancer_elements = Array.from(main_grid.children).filter(element=>element.classList.contains('balancer'))
 	const all_adjustable_spanners = Array.from(main_grid.children).filter(element=>element.classList.contains('adjustable-spanner'))
@@ -984,17 +996,36 @@ function compile_main_grid_elements_layout() {
 
 
 
+let compile_results
+
+
 const run_simulation_iteration_button = document.getElementById('run-simulation-iteration-button')
 document.getElementById('compile-button').addEventListener('click',()=>{
 	run_simulation_iteration_button.style.display = 'block'
-	compile_main_grid_elements_layout()
+	compile_results = compile_main_grid_elements_layout()
 })
 
 
 
 
 run_simulation_iteration_button.addEventListener('click', ()=>{
-
+	const input_dlvts = compile_results.input_dlvts
+	const output_dlvts = compile_results.output_dlvts
+	input_dlvts.forEach((dlvt, index)=>{
+		dlvt.value = String(index)
+	})
+	console.log('info about all transfers:', execute_transfer_on_all_dlvt_chains(all_dlvts))
+	output_dlvts.forEach((dlvt)=>{
+		if (dlvt.value !== null) {
+			if (typeof simulation_results[String(dlvt.value)] === 'number') {
+				simulation_results[String(dlvt.value)]++
+			}else{
+				simulation_results[String(dlvt.value)] = 1
+			}
+		}
+		dlvt.value = null
+	})
+	console.log(simulation_results)
 })
 
 
