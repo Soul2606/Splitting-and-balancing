@@ -73,6 +73,16 @@ function prevent_overlap(elements_tracked, static_elements){
 
 
 
+function delete_all_dlvts() {
+	console.log('!!!!!!!!!!Deleting all dlvts!!!!!!!!!!!!!!!!')
+	while (all_dlvts.length > 0) {
+		all_dlvts[0].erase()
+	}
+}
+
+
+
+
 class Balancer{
 	constructor(input_dlvt_a, input_dlvt_b, output_dlvt_a, output_dlvt_b){
 		this.input_dlvt_a = input_dlvt_a
@@ -148,22 +158,50 @@ const dlvt_pointers = new Set()
 
 
 class Doubly_linked_variable_transporter{
-	constructor(value){
+	constructor(value, name){
+		//Name for debugging
+		this.name = name === undefined? '': String(name)
 		this.value = value? value: null
 		this.transfer_target = null
 		this.targeted_by = null
 		this.pending_item_to_send = null
 		this.pending_send_to = null
 		this.pending_receive_from = null
+		all_dlvts.push(this)
+	}
+
+	erase(){
+		// This removes any instance of this from all_dlvts and dlvt_pointers. These two global variables are necessary for 
+		// the execute_transfer_on_all_dlvt_chains function and the set_target function. 
+		console.log('erasing dlvt', this)
+		const index_of_this = all_dlvts.indexOf(this)
+		if (index_of_this === -1) {
+			console.warn('could not find this dlvt in all dlvts', this)
+		}else{
+			all_dlvts.splice(index_of_this, 1)
+		}
+		if (this.targeted_by) {
+			console.log('removing from dlvt_pointers:', this.targeted_by.transfer_target)
+			dlvt_pointers.delete(this.targeted_by.transfer_target)
+			this.targeted_by.transfer_target = null
+		}
+		if (this.transfer_target !== null) {
+			this.transfer_target.targeted_by = null
+			console.log('removing from dlvt_pointers:', this.transfer_target)
+			dlvt_pointers.delete(this.transfer_target)
+		}
+		this.transfer_target = null
+		// This object should now be in limbo and be removed by the garbage collector if no other instances of this object is in memory
 	}
 
 	set_target(new_transfer_target){
+		// Each dlvt may only have one other dlvt targeting it.
 		if (this.transfer_target === new_transfer_target){
 			this.targeted_by = this
 			return true
 		}
 		if (dlvt_pointers.has(new_transfer_target)) {
-			console.warn('target already exists in dlvt_pointers')
+			console.warn('target already exists in dlvt_pointers', this, ' new target:', new_transfer_target)
 			return false
 		}
 		if (this.transfer_target !== null) {
@@ -290,10 +328,6 @@ function create_balancer() {
 	input_dlvt_a.set_target(output_dlvt_a)
 	input_dlvt_b.set_target(output_dlvt_b)
 	const balancer = new Balancer(input_dlvt_a, input_dlvt_b, output_dlvt_a, output_dlvt_b)
-	all_dlvts.push(input_dlvt_a)
-	all_dlvts.push(input_dlvt_b)
-	all_dlvts.push(output_dlvt_a)
-	all_dlvts.push(output_dlvt_b)
 	return {input_dlvt_a:input_dlvt_a, input_dlvt_b:input_dlvt_b, output_dlvt_a:output_dlvt_a, output_dlvt_b:output_dlvt_b, balancer:balancer}
 }
 
@@ -668,14 +702,14 @@ function set_main_grid_width(){
 
 
 
-let input_lanes = 0
+let amount_of_input_lanes = 0
 
 add_input_lane_button.addEventListener('click', ()=>{
 	const new_input_lane = document.createElement('div')
 	new_input_lane.className = 'input-flow-display'
 	new_input_lane.style.gridRow = '1/2'
-	input_lanes++
-	new_input_lane.style.gridColumn = `${input_lanes}/${input_lanes + 1}`
+	amount_of_input_lanes++
+	new_input_lane.style.gridColumn = `${amount_of_input_lanes}/${amount_of_input_lanes + 1}`
 	main_grid.appendChild(new_input_lane)
 	new_input_lane.addEventListener('click', remove_input_lane)
 })
@@ -685,13 +719,13 @@ add_input_lane_button.addEventListener('click', ()=>{
 
 function remove_input_lane(){
 	const input_lanes_elements = Array.from(main_grid.children).filter(element=>element.className === 'input-flow-display')
-	const last_input_lane = input_lanes_elements.filter(element=>element.style.gridColumnStart === String(input_lanes))
+	const last_input_lane = input_lanes_elements.filter(element=>element.style.gridColumnStart === String(amount_of_input_lanes))
 	if (last_input_lane.length > 1) {
 		console.warn('more than one last input lane')
 	}
 	if (last_input_lane.length > 0) {		
 		last_input_lane[0].remove()
-		input_lanes--
+		amount_of_input_lanes--
 	}else{
 		console.warn('No last input lane to remove')
 	}
@@ -828,6 +862,8 @@ add_loop_back_button.addEventListener('click', ()=>{
 
 function compile_main_grid_elements_layout() {
 
+	delete_all_dlvts()
+
 	const all_balancer_elements = Array.from(main_grid.children).filter(element=>element.classList.contains('balancer'))
 	const all_adjustable_spanners = Array.from(main_grid.children).filter(element=>element.classList.contains('adjustable-spanner'))
 	//Data for element and its corresponding balancer
@@ -837,6 +873,10 @@ function compile_main_grid_elements_layout() {
 	for (let i = 0; i < all_balancer_elements.length; i++) {
 		const element = all_balancer_elements[i];
 		const results = create_balancer()
+		results.input_dlvt_a.name = `r${element.style.gridRowStart} c${element.style.gridColumn} in a`
+		results.input_dlvt_b.name = `r${element.style.gridRowStart} c${element.style.gridColumn} in b`
+		results.output_dlvt_a.name = `r${element.style.gridRowStart} c${element.style.gridColumn} out a`
+		results.output_dlvt_b.name = `r${element.style.gridRowStart} c${element.style.gridColumn} out b`
 		data.push({element:element, balancer:results})
 		
 	}
@@ -856,13 +896,14 @@ function compile_main_grid_elements_layout() {
 		}
 		console.log('data_of_self:', data_of_self)
 
-		trace_and_assemble_dlvt_chains(data_of_self[0], element.style.gridColumnStart, element.style.gridRowEnd, true);
+		trace_and_assemble_dlvt_chains(element, data_of_self[0].balancer.output_dlvt_a, element.style.gridColumnStart, element.style.gridRowEnd);
 		
-		trace_and_assemble_dlvt_chains(data_of_self[0], Number(element.style.gridColumnEnd) - 1, element.style.gridRowEnd, false)
+		trace_and_assemble_dlvt_chains(element, data_of_self[0].balancer.output_dlvt_b, Number(element.style.gridColumnEnd) - 1, element.style.gridRowEnd)
 
 	}
 
-	function trace_and_assemble_dlvt_chains(traced_from_element_data, column, row, traced_from_left_side) {
+	function trace_and_assemble_dlvt_chains(element, dlvt_to_connect, column, row) {
+		console.log('trace and assemble', 'element', element, 'dlvt_to_connect', dlvt_to_connect, 'column', column, 'row', row)
 		const hit_elements = trace_down(Number(column), Number(row), all_adjustable_spanners);
 		console.log('hit elements', hit_elements);
 		if (hit_elements.length > 1) {
@@ -878,25 +919,19 @@ function compile_main_grid_elements_layout() {
 					throw new Error("Could not find hit element in data", data);
 				}
 				const hit_element_data = data_filtered[0]
-				const hit_left_side = column === hit_element_data.element.style.gridColumnStart
+				const hit_left_side = Number(column) === Number(hit_element_data.element.style.gridColumnStart)
 				console.log('hit_element_data:', hit_element_data, ' hit_left_side:', hit_left_side);
 				//If it didn't hit left side, assume right side
 				if (hit_left_side) {
-					if (traced_from_left_side) {
-						console.log(traced_from_element_data.balancer.output_dlvt_a.set_target(hit_element_data.balancer.input_dlvt_a))
-					}else{
-						console.log(traced_from_element_data.balancer.output_dlvt_b.set_target(hit_element_data.balancer.input_dlvt_a))
-					}
+					dlvt_to_connect.set_target(hit_element_data.balancer.input_dlvt_a)
+					return hit_element_data.balancer.input_dlvt_a
 				}else{
-					if (traced_from_left_side) {
-						console.log(traced_from_element_data.balancer.output_dlvt_a.set_target(hit_element_data.balancer.input_dlvt_b))
-					}else{
-						console.log(traced_from_element_data.balancer.output_dlvt_b.set_target(hit_element_data.balancer.input_dlvt_b))
-					}
+					dlvt_to_connect.set_target(hit_element_data.balancer.input_dlvt_b)
+					return hit_element_data.balancer.input_dlvt_b
 				}
 			} else if (hit_elements[0].classList.contains('loop-back')) {
 				// If hit a loop back
-				console.log('hit a loop back. more logic goes here soon')
+				console.log('hit a loop back')
 				const all_loop_back_elements_and_target_filtered = all_loop_back_elements_and_target.filter(element=>element.element === hit_elements[0])
 				if (all_loop_back_elements_and_target_filtered.length > 1) {
 					console.warn('data contains duplicate elements', all_loop_back_elements_and_target_filtered);
@@ -905,25 +940,62 @@ function compile_main_grid_elements_layout() {
 					throw new Error("Could not find hit element in data", data);
 				}
 				const loop_back_target = all_loop_back_elements_and_target_filtered[0].target
-				trace_and_assemble_dlvt_chains(traced_from_element_data, loop_back_target.style.gridColumnStart, loop_back_target.style.gridRowEnd, traced_from_left_side)
+				return trace_and_assemble_dlvt_chains(element, dlvt_to_connect, loop_back_target.style.gridColumnStart, loop_back_target.style.gridRowEnd)
 			} else {
 				console.warn('hit something unexpected, stopping chian', hit_elements)
 			}
 		}else{
 			//If nothing was hit, save the dlvt as hanging.
-			if (traced_from_left_side) {
-				hanging_dlvts_and_elements.push({dlvt:traced_from_element_data.balancer.output_dlvt_a, element:traced_from_element_data.element})
-			}else{
-				hanging_dlvts_and_elements.push({dlvt:traced_from_element_data.balancer.output_dlvt_b, element:traced_from_element_data.element})
-			}
+			hanging_dlvts_and_elements.push({dlvt:dlvt_to_connect, element:element})
+			return false
 		}
 	}
 
+
+	// Set up input lanes
+	const input_dlvts = []
+	for (let i = 0; i < amount_of_input_lanes; i++) {
+		const input_lanes_elements_of_this_column = Array.from(main_grid.children).filter(element=>element.className === 'input-flow-display' && element.style.gridColumnStart - 1 === i)
+		if (input_lanes_elements_of_this_column.length > 1) {
+			console.warn('data contains duplicate elements', input_lanes_elements_of_this_column);
+		}
+		if (input_lanes_elements_of_this_column.length === 0) {
+			throw new Error("Could not find input lane element of this column", data);
+		}
+		const input_dlvt = new Doubly_linked_variable_transporter(null, `input lane:${i+1}`)
+		input_dlvts.push(input_dlvt)
+		trace_and_assemble_dlvt_chains(input_lanes_elements_of_this_column[0], input_dlvt, i+1, 1)
+	}
+
+	// Deal with hanging dlvts
+	const output_dlvts = []
 	console.log('hanging_dlvts_and_elements:', hanging_dlvts_and_elements)
+	hanging_dlvts_and_elements.forEach((element, index)=>{
+		const output_dlvt = new Doubly_linked_variable_transporter(null, `output lane:${index+1}`)
+		output_dlvts.push(output_dlvt)
+		element.dlvt.set_target(output_dlvt)
+	})
+
+	console.log('all dlvts:', all_dlvts)
+
+	return { input_dlvts, output_dlvts }
 }
 
 
-document.getElementById('compile-button').addEventListener('click',compile_main_grid_elements_layout)
+
+
+const run_simulation_iteration_button = document.getElementById('run-simulation-iteration-button')
+document.getElementById('compile-button').addEventListener('click',()=>{
+	run_simulation_iteration_button.style.display = 'block'
+	compile_main_grid_elements_layout()
+})
+
+
+
+
+run_simulation_iteration_button.addEventListener('click', ()=>{
+
+})
 
 
 
