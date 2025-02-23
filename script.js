@@ -93,9 +93,12 @@ class Balancer{
 	}
 
 	toggle_swap(){
-		if (input_dlvt_a === undefined || input_dlvt_b === undefined || output_dlvt_a === undefined || output_dlvt_b === undefined) {
+		if (this.input_dlvt_a === undefined || this.input_dlvt_b === undefined || this.output_dlvt_a === undefined || this.output_dlvt_b === undefined) {
 			throw new Error("undefined parameters in:", this);
 		}
+
+		this.input_dlvt_a.set_target(null)
+		this.input_dlvt_b.set_target(null)
 		let failed = false
 		//Random
 		if (this.oscillation) {
@@ -114,7 +117,7 @@ class Balancer{
 
 	push_to_empty_outputs(){
 		//This function exists to essentially give a buffer for one dlvt, if input stops for only one cycle, then the flow will still be continuous
-		if (input_dlvt_a === undefined || input_dlvt_b === undefined || output_dlvt_a === undefined || output_dlvt_b === undefined) {
+		if (this.input_dlvt_a === undefined || this.input_dlvt_b === undefined || this.output_dlvt_a === undefined || this.output_dlvt_b === undefined) {
 			throw new Error("undefined parameters in:", this);
 		}
 
@@ -125,15 +128,20 @@ class Balancer{
 		const output_a_empty = this.output_dlvt_a === null
 		const output_b_empty = this.output_dlvt_b === null
 
+		
 		if ((input_a_empty && !input_b_empty && output_a_empty && !output_b_empty) || 
 		(!input_a_empty && input_b_empty && !output_a_empty && output_b_empty)) {
 			//Cross
+			this.input_dlvt_a.set_target(null)
+			this.input_dlvt_b.set_target(null)
 			failed = !this.input_dlvt_a.set_target(this.output_dlvt_b)
 			failed = !this.input_dlvt_b.set_target(this.output_dlvt_a)
 			this.oscillation = true
 		}else if ((input_a_empty && !input_b_empty && !output_a_empty && output_b_empty) || 
 		(!input_a_empty && input_b_empty && output_a_empty && !output_b_empty)) {
 			//Straight
+			this.input_dlvt_a.set_target(null)
+			this.input_dlvt_b.set_target(null)
 			failed = !this.input_dlvt_a.set_target(this.output_dlvt_a)
 			failed = !this.input_dlvt_b.set_target(this.output_dlvt_b)
 			this.oscillation = false
@@ -152,10 +160,49 @@ class Balancer{
 
 
 
+class Dlvt_transfer_chain_info {
+	constructor(termination, reference, success) {
+		this.termination = termination
+		if (termination === 'loop') {
+			this.chain = []
+		}else{
+			this.chain = [{reference, success, variable_transferred:null}]
+		}
+	}
+
+	add_to_chain(reference, success, variable_transferred){
+		this.chain.unshift({reference,success,variable_transferred})
+		return this.chain
+	}
+
+	is_latest_transfer_successful(){
+		if (this.chain.length > 0) {
+			return this.chain[0].success
+		} else if (this.termination === 'loop') {
+			return true
+		}{
+			console.warn('empty chain without hitting a loop', this)
+			return false
+		}
+	}
+
+	get_reference_chain(){
+		return this.chain.map(element=>element.reference)
+	}
+
+	get_transfer_chain(){
+		return this.chain.map(element=>element.variable_transferred)
+	}
+
+	get_success_chain(){
+		return this.chain.map(element=>element.success)
+	}
+}
+
+
+
+
 const dlvt_pointers = new Set()
-
-
-
 
 class Doubly_linked_variable_transporter{
 	constructor(value, name){
@@ -195,6 +242,10 @@ class Doubly_linked_variable_transporter{
 	}
 
 	set_target(new_transfer_target){
+		if (!(new_transfer_target instanceof Doubly_linked_variable_transporter) && new_transfer_target !== null) {
+			throw new Error("Invalid parameter", new_transfer_target);
+			
+		}
 		// Each dlvt may only have one other dlvt targeting it.
 		if (this.transfer_target === new_transfer_target){
 			this.targeted_by = this
@@ -206,8 +257,11 @@ class Doubly_linked_variable_transporter{
 		}
 		if (this.transfer_target !== null) {
 			this.transfer_target.targeted_by = null
-			console.log('removing from dlvt_pointers:', this.transfer_target)
 			dlvt_pointers.delete(this.transfer_target)
+		}
+		if (new_transfer_target === null || new_transfer_target === undefined) {
+			this.transfer_target = null
+			return true
 		}
 		if (new_transfer_target.targeted_by !== null) {
 			throw new Error("This DLVT is already targeted by another DLVT");
@@ -242,22 +296,22 @@ class Doubly_linked_variable_transporter{
 		if (this.transfer_target === null || this.transfer_target === undefined) {
 			// Transfer can only proceed if the final DLVT is empty
 			if (this.value === null) {
-				return {success:true, info:{termination:'hit end', chain:[{reference:this, success:true}]}}
+				return new Dlvt_transfer_chain_info('hit end', this, true)
 			}else{
-				return {success:false, info:{termination:'hit end', chain:[{reference:this, success:false}]}}
+				return new Dlvt_transfer_chain_info('hit end', this, false)
 			}
 		}
 
 		if(this.transfer_target.pending_receive_from !== null){
 			// when a loop is detected the chain must start empty
-			return {success:true, info:{termination:'loop', chain:[]}}
+			return new Dlvt_transfer_chain_info('loop')
 		}
 
 		this.pending_item_to_send = this.value
 		this.pending_send_to = this.transfer_target
 		this.transfer_target.pending_receive_from = this
-		const results = this.transfer_target.transfer_recursively()
-		const can_transfer = results.success || this.transfer_target.value === null
+		const transfer_chain_info = this.transfer_target.transfer_recursively()
+		const can_transfer = transfer_chain_info.is_latest_transfer_successful() || this.transfer_target.value === null
 		if (can_transfer) {
 			// This must happen first
 			if (this.pending_receive_from === null) {
@@ -265,13 +319,12 @@ class Doubly_linked_variable_transporter{
 			}
 			this.transfer_target.value = this.pending_item_to_send
 		}
+		transfer_chain_info.add_to_chain(this, can_transfer, this.pending_item_to_send)
 		this.pending_item_to_send = null
 		this.pending_send_to = null
 		this.pending_receive_from = null
 		this.transfer_target.pending_receive_from = null
-		results.info.chain.unshift({reference:this, success:can_transfer})
-		results.success = can_transfer
-		return results
+		return transfer_chain_info
 	}
 
 	search_backwards(origin){
@@ -336,6 +389,7 @@ function create_balancer() {
 
 
 function execute_transfer_on_all_dlvt_chains(all_dlvts){
+	console.groupCollapsed('execute_transfer_on_all_dlvt_chains')
 	const all_transfers_info = []
 	const unexecuted_dlvts = Array.from(all_dlvts)
 	let failsafe = 10000
@@ -348,7 +402,7 @@ function execute_transfer_on_all_dlvt_chains(all_dlvts){
 		const transfer_info = dlvt_to_start_transfer_from.transfer_recursively()
 		console.log('transfer info', transfer_info)
 		all_transfers_info.push(transfer_info)
-		const dlvt_chain_array = transfer_info.info.chain
+		const dlvt_chain_array = transfer_info.chain
 		for (let i = 0; i < dlvt_chain_array.length; i++) {
 			const dlvt_in_chain = dlvt_chain_array[i].reference;
 			const index_to_remove = unexecuted_dlvts.indexOf(dlvt_in_chain)
@@ -364,6 +418,7 @@ function execute_transfer_on_all_dlvt_chains(all_dlvts){
 	if (failsafe <= 0) {
 		console.warn('failsafe triggered')
 	}
+	console.groupEnd()
 	return all_transfers_info
 }
 
@@ -399,6 +454,48 @@ const add_loop_back_button = document.getElementById('add-loop-back-button')
 let can_drag = true
 
 const PHI = 1.618033988749
+
+
+
+
+const all_balancer_element_managers = []
+
+class Balancer_element_manager {
+	constructor(root_balancer_element, flow_visualizer_element_in_a, flow_visualizer_element_in_b, flow_visualizer_element_out_a, flow_visualizer_element_out_b, balancer_class_instance) {
+		this.root_balancer_element = root_balancer_element
+		this.flow_visualizer_element_in_a = flow_visualizer_element_in_a
+		this.flow_visualizer_element_in_b = flow_visualizer_element_in_b
+		this.flow_visualizer_element_out_a = flow_visualizer_element_out_a
+		this.flow_visualizer_element_out_b = flow_visualizer_element_out_b
+		this.balancer_class_instance = balancer_class_instance
+		this.flow_visualizer_element_in_a_previous_color = 'black'
+		this.flow_visualizer_element_in_b_previous_color = 'black'
+		this.flow_visualizer_element_out_a_previous_color = 'black'
+		this.flow_visualizer_element_out_b_previous_color = 'black'
+	}
+
+	animate_flow_visualizers(transfer_chain_info){
+		transfer_chain_info.chain.forEach(element=>{
+			const successfully_transferred = element.success
+			if (this.balancer_class_instance.input_dlvt_a === element.reference && successfully_transferred) {
+				play_slide_animation(this.flow_visualizer_element_in_a, this.flow_visualizer_element_in_a_previous_color, random_color_seeded(Number(element.reference.value)), 0.5)
+				this.flow_visualizer_element_in_a_previous_color = random_color_seeded(Number(element.reference.value))
+			}
+			if (this.balancer_class_instance.input_dlvt_b === element.reference && successfully_transferred) {
+				play_slide_animation(this.flow_visualizer_element_in_b, this.flow_visualizer_element_in_b_previous_color, random_color_seeded(Number(element.reference.value)), 0.5)
+				this.flow_visualizer_element_in_b_previous_color = random_color_seeded(Number(element.reference.value))
+			}
+			if (this.balancer_class_instance.output_dlvt_a === element.reference && successfully_transferred) {
+				play_slide_animation(this.flow_visualizer_element_out_a, this.flow_visualizer_element_out_a_previous_color, random_color_seeded(Number(element.reference.value)), 0.5)
+				this.flow_visualizer_element_out_a_previous_color = random_color_seeded(Number(element.reference.value))
+			}
+			if (this.balancer_class_instance.output_dlvt_b === element.reference && successfully_transferred) {
+				play_slide_animation(this.flow_visualizer_element_out_b, this.flow_visualizer_element_out_b_previous_color, random_color_seeded(Number(element.reference.value)), 0.5)
+				this.flow_visualizer_element_out_b_previous_color = random_color_seeded(Number(element.reference.value))
+			}
+		})
+	}
+}
 
 
 
@@ -748,6 +845,10 @@ add_balancer_button.addEventListener('click', ()=>{
 		element.classList.toggle('balancer-flow-display-disabled')
 	}
 
+	let flow_visualizer_element_in_a
+	let flow_visualizer_element_in_b
+	let flow_visualizer_element_out_a
+	let flow_visualizer_element_out_b
 	const create_balancer_flow_display = (input, right_side)=>{
 		const root = document.createElement('div')
 		if (input) {
@@ -762,6 +863,19 @@ add_balancer_button.addEventListener('click', ()=>{
 		})
 		root.addEventListener('mouseleave', ()=>{flow_visualizer.remove()})
 		root.classList.add('balancer-flow-display')
+		if (input) {
+			if (right_side) {
+				flow_visualizer_element_in_b = root
+			}else{
+				flow_visualizer_element_in_a = root
+			}
+		}else{
+			if (right_side) {
+				flow_visualizer_element_out_b = root
+			}else{
+				flow_visualizer_element_out_a = root
+			}
+		}
 		return root
 	}
 
@@ -782,6 +896,8 @@ add_balancer_button.addEventListener('click', ()=>{
 	balancer_element.appendChild(balancer_flow_display_container_bottom)
 
 	main_grid.appendChild(balancer_element)
+
+	all_balancer_element_managers.push(new Balancer_element_manager(balancer_element, flow_visualizer_element_in_a, flow_visualizer_element_in_b, flow_visualizer_element_out_a, flow_visualizer_element_out_b))
 })
 
 
@@ -869,6 +985,7 @@ const simulation_results = {}
 
 
 function compile_main_grid_elements_layout() {
+	console.groupCollapsed('compile_main_grid_elements_layout')
 
 	delete_all_dlvts()
 	for (const key in simulation_results) {
@@ -883,15 +1000,16 @@ function compile_main_grid_elements_layout() {
 	const data = []
 	const hanging_dlvts_and_elements = []
 
-	for (let i = 0; i < all_balancer_elements.length; i++) {
-		const element = all_balancer_elements[i];
-		const results = create_balancer()
-		results.input_dlvt_a.name = `r${element.style.gridRowStart} c${element.style.gridColumn} in a`
-		results.input_dlvt_b.name = `r${element.style.gridRowStart} c${element.style.gridColumn} in b`
-		results.output_dlvt_a.name = `r${element.style.gridRowStart} c${element.style.gridColumn} out a`
-		results.output_dlvt_b.name = `r${element.style.gridRowStart} c${element.style.gridColumn} out b`
-		data.push({element:element, balancer:results})
-		
+	for (let i = 0; i < all_balancer_element_managers.length; i++) {
+		const balancer_element_manager = all_balancer_element_managers[i];
+		const balancer_element = balancer_element_manager.root_balancer_element
+		const balancer = create_balancer()
+		balancer_element_manager.balancer_class_instance = balancer.balancer
+		balancer.input_dlvt_a.name = `r${balancer_element.style.gridRowStart} c${balancer_element.style.gridColumn} in a`
+		balancer.input_dlvt_b.name = `r${balancer_element.style.gridRowStart} c${balancer_element.style.gridColumn} in b`
+		balancer.output_dlvt_a.name = `r${balancer_element.style.gridRowStart} c${balancer_element.style.gridColumn} out a`
+		balancer.output_dlvt_b.name = `r${balancer_element.style.gridRowStart} c${balancer_element.style.gridColumn} out b`
+		data.push({element:balancer_element, balancer:balancer})
 	}
 	
 	console.log('data', data)
@@ -991,6 +1109,7 @@ function compile_main_grid_elements_layout() {
 
 
 	console.log('all dlvts:', all_dlvts)
+	console.groupEnd()
 
 	return { input_dlvts, output_dlvts }
 }
@@ -1012,21 +1131,41 @@ document.getElementById('compile-button').addEventListener('click',()=>{
 
 run_simulation_iteration_button.addEventListener('click', ()=>{
 	const input_dlvts = compile_results.input_dlvts
-	const output_dlvts = compile_results.output_dlvts
+	const output_lanes = compile_results.output_dlvts
 	input_dlvts.forEach((dlvt, index)=>{
 		dlvt.value = String(index)
 	})
+
 	const all_transfers_info = execute_transfer_on_all_dlvt_chains(all_dlvts)
 	console.log('info about all transfers:', all_transfers_info)
-	output_dlvts.forEach((output_dlvt)=>{
-		if (output_dlvt.dlvt.value !== null) {
-			if (typeof simulation_results[String(output_dlvt.dlvt.value)] === 'number') {
-				simulation_results[String(output_dlvt.dlvt.value)]++
-			}else{
-				simulation_results[String(output_dlvt.dlvt.value)] = 1
+	all_transfers_info.forEach(transfer_info=>{
+		all_balancer_element_managers.forEach(balancer_element_manager=>{
+			balancer_element_manager.animate_flow_visualizers(transfer_info)
+		})
+	})
+
+	all_balancer_element_managers.forEach(balancer_element_manager=>{
+		balancer_element_manager.balancer_class_instance.toggle_swap()
+		balancer_element_manager.balancer_class_instance.push_to_empty_outputs()
+	})
+
+	output_lanes.forEach((output_lane)=>{
+		const dlvt_value = output_lane.dlvt.value
+		const lane_key = String(output_lane.lane)
+
+		if (output_lane.dlvt.value !== null) {
+			if (!simulation_results[lane_key]) {
+				simulation_results[lane_key] = {}
 			}
+
+			if (typeof simulation_results[lane_key][String(dlvt_value)] === 'number') {
+				simulation_results[lane_key][String(dlvt_value)]++
+			}else{
+				simulation_results[lane_key][String(dlvt_value)] = 1
+			}
+			
 		}
-		output_dlvt.dlvt.value = null
+		output_lane.dlvt.value = null
 	})
 	console.log(simulation_results)
 })
@@ -1044,7 +1183,7 @@ function sleep(ms) {
 async function play_slide_animation(element, color1, color2, time_seconds) {
 	element.style.backgroundPosition = ''
 	element.style.transition = `background-position 0s`
-	element.style.setProperty('background-image', `linear-gradient(to bottom, ${color1} 50%, ${color2} 50%)`)
+	element.style.setProperty('background-image', `linear-gradient(to bottom, ${color1} 48%, white 50%, ${color2} 52%)`)
 	//This exists so the animation is repeatable
 	await sleep(1)
 	element.style.backgroundSize = '100% 200%'
@@ -1059,6 +1198,11 @@ function random_color_seeded(seed) {
 	let hue = (seed*PHI*360+55)%360
 	let saturation = (seed*PHI*50)%50 + 50
 	let lightness = ((seed*PHI*20+10)%20) + 40
+	if (seed = null) {
+		lightness = 0
+		saturation = 100
+		hue = 0
+	}
 	return `hsl(${hue}, ${saturation}%, ${lightness}%)`
 }
 
