@@ -136,14 +136,3 @@ p{
     z-index: 9999;
     background-color: rgb(55, 177, 224);
 }
-
-.background-vertical-slide{
-    background-size: 100% 200%;
-    background-image: linear-gradient(to bottom, hsl(255,255,255) 50%, black 50%);
-    transition: background-position 0s;
-}
-
-.background-vertical-slide:hover{
-    transition: background-position 1s;
-    background-position: 0 -100%;
-}

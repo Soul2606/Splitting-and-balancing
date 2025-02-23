@@ -398,6 +398,7 @@ const add_loop_back_button = document.getElementById('add-loop-back-button')
 
 let can_drag = true
 
+const PHI = 1.618033988749
 
 
 
@@ -958,7 +959,7 @@ function compile_main_grid_elements_layout() {
 			}
 		}else{
 			//If nothing was hit, save the dlvt as hanging.
-			hanging_dlvts_and_elements.push({dlvt:dlvt_to_connect, element:element})
+			hanging_dlvts_and_elements.push({dlvt:dlvt_to_connect, lane:column})
 			return false
 		}
 	}
@@ -983,10 +984,11 @@ function compile_main_grid_elements_layout() {
 	const output_dlvts = []
 	console.log('hanging_dlvts_and_elements:', hanging_dlvts_and_elements)
 	hanging_dlvts_and_elements.forEach((element, index)=>{
-		const output_dlvt = new Doubly_linked_variable_transporter(null, `output lane:${index+1}`)
-		output_dlvts.push(output_dlvt)
+		const output_dlvt = new Doubly_linked_variable_transporter(null, `output lane:${element.lane}`)
+		output_dlvts.push({dlvt:output_dlvt, lane:element.lane})
 		element.dlvt.set_target(output_dlvt)
 	})
+
 
 	console.log('all dlvts:', all_dlvts)
 
@@ -1014,19 +1016,51 @@ run_simulation_iteration_button.addEventListener('click', ()=>{
 	input_dlvts.forEach((dlvt, index)=>{
 		dlvt.value = String(index)
 	})
-	console.log('info about all transfers:', execute_transfer_on_all_dlvt_chains(all_dlvts))
-	output_dlvts.forEach((dlvt)=>{
-		if (dlvt.value !== null) {
-			if (typeof simulation_results[String(dlvt.value)] === 'number') {
-				simulation_results[String(dlvt.value)]++
+	const all_transfers_info = execute_transfer_on_all_dlvt_chains(all_dlvts)
+	console.log('info about all transfers:', all_transfers_info)
+	output_dlvts.forEach((output_dlvt)=>{
+		if (output_dlvt.dlvt.value !== null) {
+			if (typeof simulation_results[String(output_dlvt.dlvt.value)] === 'number') {
+				simulation_results[String(output_dlvt.dlvt.value)]++
 			}else{
-				simulation_results[String(dlvt.value)] = 1
+				simulation_results[String(output_dlvt.dlvt.value)] = 1
 			}
 		}
-		dlvt.value = null
+		output_dlvt.dlvt.value = null
 	})
 	console.log(simulation_results)
 })
 
 
 
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
+
+
+async function play_slide_animation(element, color1, color2, time_seconds) {
+	element.style.backgroundPosition = ''
+	element.style.transition = `background-position 0s`
+	element.style.setProperty('background-image', `linear-gradient(to bottom, ${color1} 50%, ${color2} 50%)`)
+	//This exists so the animation is repeatable
+	await sleep(1)
+	element.style.backgroundSize = '100% 200%'
+	element.style.transition = `background-position ${time_seconds}s`
+	element.style.backgroundPosition = '0 -100%'
+}
+
+
+
+
+function random_color_seeded(seed) {
+	let hue = (seed*PHI*360+55)%360
+	let saturation = (seed*PHI*50)%50 + 50
+	let lightness = ((seed*PHI*20+10)%20) + 40
+	return `hsl(${hue}, ${saturation}%, ${lightness}%)`
+}
+
+
+ 
