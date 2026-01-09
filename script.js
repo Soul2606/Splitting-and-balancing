@@ -1174,7 +1174,7 @@ run_simulation_iteration_button.addEventListener('click', ()=>{
 
 
 function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 
@@ -1208,3 +1208,272 @@ function random_color_seeded(seed) {
 
 
  
+
+
+
+
+
+
+
+
+
+function compile_main_grid_elements_layout_as_json() {
+	console.groupCollapsed('compile_main_grid_elements_layout_as_json')
+
+	// --- collections --------------------------------------------------------
+
+	const all_balancer_elements = Array.from(main_grid.children)
+		.filter(el => el.classList.contains('balancer'))
+
+	const all_adjustable_spanners = Array.from(main_grid.children)
+		.filter(el => el.classList.contains('adjustable-spanner'))
+
+	const nodes = []
+	const connections = []
+	const hanging_outputs = []  // { fromNodeId, fromPort, lane }
+
+	// Helper: create a stable id for a DOM element
+	function makeIdForElement(el, prefix) {
+		const rStart = Number(el.style.gridRowStart)
+		const rEnd   = Number(el.style.gridRowEnd)
+		const cStart = Number(el.style.gridColumnStart)
+		const cEnd   = Number(el.style.gridColumnEnd)
+		return `${prefix}_r${rStart}-${rEnd}_c${cStart}-${cEnd}`
+	}
+
+	// --- 1. Build node list for all balancers (mirrors your data[]) ---------
+
+	const data = []  // [{ element, nodeId }]
+	for (let i = 0; i < all_balancer_element_managers.length; i++) {
+		const manager = all_balancer_element_managers[i]
+		const el = manager.root_balancer_element
+
+		const nodeId = makeIdForElement(el, 'balancer')
+
+		data.push({ element: el, nodeId })
+
+		nodes.push({
+			id: nodeId,
+			type: 'balancer',
+			grid: {
+				rowStart: Number(el.style.gridRowStart),
+				rowEnd:   Number(el.style.gridRowEnd),
+				colStart: Number(el.style.gridColumnStart),
+				colEnd:   Number(el.style.gridColumnEnd)
+			},
+			ports: {
+				input_a:  null,
+				input_b:  null,
+				output_a: null,
+				output_b: null
+			}
+		})
+	}
+
+	// Helper: get nodeId for a balancer DOM element (like your data.filter)
+	function getNodeIdForElement(el) {
+		const matches = data.filter(item => item.element === el)
+		if (matches.length > 1) {
+			console.warn('data contains duplicate elements', matches)
+		}
+		if (matches.length === 0) {
+			throw new Error('Could not find hit element in data')
+		}
+		return matches[0].nodeId
+	}
+
+	// --- 2. Tracing logic, but JSON-based ----------------------------------
+
+	function trace_and_assemble_json(element, fromEndpoint, column, row) {
+		console.log(
+			'trace_and_assemble_json',
+			'element', element,
+			'fromEndpoint', fromEndpoint,
+			'column', column,
+			'row', row
+		)
+
+		const hit_elements = trace_down(Number(column), Number(row), all_adjustable_spanners)
+		console.log('hit elements', hit_elements)
+
+		if (hit_elements.length > 1) {
+			console.warn('hit more than one element', hit_elements)
+		}
+
+		if (hit_elements.length === 0) {
+			// hanging → becomes output lane
+			hanging_outputs.push({
+				fromNodeId: fromEndpoint.nodeId,
+				fromPort:   fromEndpoint.port,
+				lane:       Number(column)
+			})
+			return null
+		}
+
+		const hit = hit_elements[0]
+
+		if (hit.classList.contains('balancer')) {
+			const targetNodeId = getNodeIdForElement(hit)
+			const hit_left_side =
+				Number(column) === Number(hit.style.gridColumnStart)
+
+			const targetPort = hit_left_side ? 'input_a' : 'input_b'
+
+			connections.push({
+				from: { nodeId: fromEndpoint.nodeId, port: fromEndpoint.port },
+				to:   { nodeId: targetNodeId,         port: targetPort }
+			})
+
+			console.log('connected balancer → balancer', {
+				from: fromEndpoint,
+				to:   { nodeId: targetNodeId, port: targetPort }
+			})
+
+			return { nodeId: targetNodeId, port: targetPort }
+		}
+
+		if (hit.classList.contains('loop-back')) {
+			console.log('hit a loop back')
+			const matches = all_loop_back_elements_and_target
+				.filter(item => item.element === hit)
+
+			if (matches.length > 1) {
+				console.warn('data contains duplicate loop-back elements', matches)
+			}
+			if (matches.length === 0) {
+				throw new Error('Could not find loop-back element in data')
+			}
+
+			const loop_back_target = matches[0].target
+
+			// Important: use SAME coordinates as your original code
+			return trace_and_assemble_json(
+				element,
+				fromEndpoint,
+				Number(loop_back_target.style.gridColumnStart),
+				Number(loop_back_target.style.gridRowEnd)
+			)
+		}
+
+		console.warn('hit something unexpected, stopping chain', hit)
+		return null
+	}
+
+	// --- 3. Wire balancer outputs (mirrors your two calls) ------------------
+
+	for (let i = 0; i < all_balancer_elements.length; i++) {
+		const el = all_balancer_elements[i]
+		const nodeId = getNodeIdForElement(el)
+
+		const rowEnd = Number(el.style.gridRowEnd)
+		const colStart = Number(el.style.gridColumnStart)
+		const colEnd   = Number(el.style.gridColumnEnd)
+
+		// Left side: output_a
+		trace_and_assemble_json(
+			el,
+			{ nodeId, port: 'output_a' },
+			colStart,
+			rowEnd
+		)
+
+		// Right side: output_b — note the original: gridColumnEnd - 1
+		trace_and_assemble_json(
+			el,
+			{ nodeId, port: 'output_b' },
+			colEnd - 1,
+			rowEnd
+		)
+	}
+
+	// --- 4. Input lanes (mirrors your input_dlvts loop) ---------------------
+
+	const inputs = []
+	for (let i = 0; i < amount_of_input_lanes; i++) {
+		const colIndex = i + 1
+
+		const input_lane_elements = Array.from(main_grid.children)
+			.filter(el =>
+				el.className === 'input-flow-display' &&
+				Number(el.style.gridColumnStart) - 1 === i
+			)
+
+		if (input_lane_elements.length > 1) {
+			console.warn('data contains duplicate input lane elements', input_lane_elements)
+		}
+		if (input_lane_elements.length === 0) {
+			throw new Error('Could not find input lane element of this column')
+		}
+
+		const el = input_lane_elements[0]
+		const nodeId = `input_lane_${colIndex}`
+
+		nodes.push({
+			id: nodeId,
+			type: 'input',
+			grid: {
+				rowStart: Number(el.style.gridRowStart) || 1,
+				rowEnd:   Number(el.style.gridRowEnd)   || 1,
+				colStart: Number(el.style.gridColumnStart),
+				colEnd:   Number(el.style.gridColumnEnd) || Number(el.style.gridColumnStart)
+			},
+			ports: {
+				output: null
+			}
+		})
+
+		inputs.push({ id: nodeId, column: colIndex })
+
+		// Same as original: start from (i+1, 1)
+		trace_and_assemble_json(
+			el,
+			{ nodeId, port: 'output' },
+			colIndex,
+			1
+		)
+	}
+
+	// --- 5. Hanging outputs → output nodes (mirrors your output_dlvts) ------
+
+	const outputs = []
+	console.log('hanging_outputs:', hanging_outputs)
+
+	hanging_outputs.forEach(h => {
+		const nodeId = `output_lane_${h.lane}`
+
+		// Create output node only once per lane
+		if (!outputs.find(o => o.id === nodeId)) {
+			outputs.push({ id: nodeId, column: h.lane })
+
+			nodes.push({
+				id: nodeId,
+				type: 'output',
+				grid: {
+					rowStart: null,
+					rowEnd:   null,
+					colStart: h.lane,
+					colEnd:   h.lane
+				},
+				ports: {
+					input: null
+				}
+			})
+		}
+
+		connections.push({
+			from: { nodeId: h.fromNodeId, port: h.fromPort },
+			to:   { nodeId,              port: 'input' }
+		})
+	})
+
+	console.groupEnd()
+
+	return { nodes, inputs, outputs, connections }
+}
+
+
+
+document.getElementById('compile-json-button').addEventListener('click', () => {
+	console.log('compile as json')
+	console.log(compile_main_grid_elements_layout_as_json())
+})
