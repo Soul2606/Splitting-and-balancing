@@ -657,7 +657,11 @@ function random_color_seeded(seed) {
 
 
 
-
+/**
+ * @typedef {object} PositionGrid
+ * @property {number} row
+ * @property {number} column
+*/
 
 /**
  * A single balancer extracted from the HTML grid.
@@ -668,8 +672,8 @@ function random_color_seeded(seed) {
  * @property {number} row              The grid row where the balancer starts
  * @property {number} inputColA        Column index for left input
  * @property {number} inputColB        Column index for right input
- * @property {number|null} outputColA  Column index for left output (null if disabled)
- * @property {number|null} outputColB  Column index for right output (null if disabled)
+ * @property {boolean} outputA         left output is enabled
+ * @property {boolean} outputB         right output is enabled
 */
 
 /**
@@ -678,8 +682,8 @@ function random_color_seeded(seed) {
  * @typedef {Object} LoopBackNode
  * @property {string} id                Unique loop‑back ID, e.g. "l:0"
  * @property {"left"|"right"} direction Which side the loop‑back originates from
- * @property {{row:number, column:number}} input   Entry point of the loop‑back
- * @property {{row:number, column:number}} output  Exit point of the loop‑back
+ * @property {PositionGrid} input   Entry point of the loop‑back
+ * @property {PositionGrid} output  Exit point of the loop‑back
 */
 
 /**
@@ -688,7 +692,7 @@ function random_color_seeded(seed) {
  * @typedef {Object} CompiledHtmlLayout
  * @property {number} inputs            Number of input lanes
  * @property {BalancerNode[]} balancers Array of all balancer nodes
- * @property {LoopBackNode[]} loop_backs Array of all loop‑back nodes
+ * @property {LoopBackNode[]} loopBacks Array of all loop‑back nodes
 */
 
 
@@ -719,12 +723,12 @@ function compile_html_elements(grid, all_loop_back_elements_and_target, inputs) 
 				row: area[0],
 				inputColA: area[1],
 				inputColB: area[3]-1,
-				outputColA: output_disable==='left' ? null : area[1],
-				outputColB: output_disable==='right' ? null : area[3]-1,
+				outputA: output_disable!=='left',
+				outputB: output_disable!=='right',
 			}
 		})
 		,
-		loop_backs:Array.from(all_loop_back_elements_and_target)
+		loopBacks:Array.from(all_loop_back_elements_and_target)
 		.map((lb, idx)=>{
 			/**@type {number[]} */
 			const area = lb.element.style.gridArea.split('/').map(s=>Number(s))
@@ -752,264 +756,167 @@ document.getElementById('compile-html-button').addEventListener('click', ()=> {
 
 
 
-function compile_main_grid_elements_layout_as_json() {
-	console.groupCollapsed('compile_main_grid_elements_layout_as_json')
 
-	// --- collections --------------------------------------------------------
 
-	const all_balancer_elements = Array.from(main_grid.children)
-		.filter(el => el.classList.contains('balancer'))
+/**
+ * Compiles CompiledHtmlLayout to a directed graph of balancers
+ * @param {CompiledHtmlLayout} layout 
+ * @returns 
+*/
+function compileCHLAsJson(layout) {
+	console.groupCollapsed('compileCHLasJson')
+	console.log('layout', layout)
+	console.groupEnd()
 
-	const all_adjustable_spanners = Array.from(main_grid.children)
-		.filter(el => el.classList.contains('adjustable-spanner'))
-
-	const nodes = []
-	const connections = []
-	const hanging_outputs = []  // { fromNodeId, fromPort, lane }
-
-	// Helper: create a stable id for a DOM element
-	function makeIdForElement(el, prefix) {
-		const rStart = Number(el.style.gridRowStart)
-		const rEnd   = Number(el.style.gridRowEnd)
-		const cStart = Number(el.style.gridColumnStart)
-		const cEnd   = Number(el.style.gridColumnEnd)
-		return `${prefix}_r${rStart}-${rEnd}_c${cStart}-${cEnd}`
+	/**
+	 * @param {PositionGrid} position 
+	 * @returns {LoopBackNode|BalancerNode|null}
+	 */
+	const checkOverlap = (position)=>{
+		return layout.balancers.find(bal=>
+			bal.row === position.row && (bal.inputColA === position.column || bal.inputColB === position.column)
+		) ?? 
+		layout.loopBacks.find(back=>
+			back.input.row === position.row && back.input.column === position.column
+		) ?? null
 	}
 
-	// --- 1. Build node list for all balancers (mirrors your data[]) ---------
-
-	const data = []  // [{ element, nodeId }]
-	for (let i = 0; i < all_balancer_element_managers.length; i++) {
-		const manager = all_balancer_element_managers[i]
-		const el = manager.root_balancer_element
-
-		const nodeId = makeIdForElement(el, 'balancer')
-
-		data.push({ element: el, nodeId })
-
-		nodes.push({
-			id: nodeId,
-			type: 'balancer',
-			grid: {
-				rowStart: Number(el.style.gridRowStart),
-				rowEnd:   Number(el.style.gridRowEnd),
-				colStart: Number(el.style.gridColumnStart),
-				colEnd:   Number(el.style.gridColumnEnd)
-			},
-			ports: {
-				input_a:  null,
-				input_b:  null,
-				output_a: null,
-				output_b: null
-			}
-		})
-	}
-
-	// Helper: get nodeId for a balancer DOM element (like your data.filter)
-	function getNodeIdForElement(el) {
-		const matches = data.filter(item => item.element === el)
-		if (matches.length > 1) {
-			console.warn('data contains duplicate elements', matches)
-		}
-		if (matches.length === 0) {
-			throw new Error('Could not find hit element in data')
-		}
-		return matches[0].nodeId
-	}
-
-	// --- 2. Tracing logic, but JSON-based ----------------------------------
-
-	function trace_and_assemble_json(element, fromEndpoint, column, row) {
-		console.log(
-			'trace_and_assemble_json',
-			'element', element,
-			'fromEndpoint', fromEndpoint,
-			'column', column,
-			'row', row
-		)
-
-		const hit_elements = trace_down(Number(column), Number(row), all_adjustable_spanners)
-		console.log('hit elements', hit_elements)
-
-		if (hit_elements.length > 1) {
-			console.warn('hit more than one element', hit_elements)
-		}
-
-		if (hit_elements.length === 0) {
-			// hanging → becomes output lane
-			hanging_outputs.push({
-				fromNodeId: fromEndpoint.nodeId,
-				fromPort:   fromEndpoint.port,
-				lane:       Number(column)
-			})
+	/**
+	 * @param {PositionGrid} position 
+	 * @param {BalancerNode} balancer 
+	 * @returns {"left"|"right"|null}
+	 */
+	const getSide = (position, balancer)=>{
+		if (balancer.row !== position.row) {
 			return null
 		}
-
-		const hit = hit_elements[0]
-
-		if (hit.classList.contains('balancer')) {
-			const targetNodeId = getNodeIdForElement(hit)
-			const hit_left_side =
-				Number(column) === Number(hit.style.gridColumnStart)
-
-			const targetPort = hit_left_side ? 'input_a' : 'input_b'
-
-			connections.push({
-				from: { nodeId: fromEndpoint.nodeId, port: fromEndpoint.port },
-				to:   { nodeId: targetNodeId,         port: targetPort }
-			})
-
-			console.log('connected balancer → balancer', {
-				from: fromEndpoint,
-				to:   { nodeId: targetNodeId, port: targetPort }
-			})
-
-			return { nodeId: targetNodeId, port: targetPort }
+		if (balancer.inputColA === position.column) {
+			return "left"
+		} else if (balancer.inputColB === position.column) {
+			return "right"
 		}
-
-		if (hit.classList.contains('loop-back')) {
-			console.log('hit a loop back')
-			const matches = all_loop_back_elements_and_target
-				.filter(item => item.element === hit)
-
-			if (matches.length > 1) {
-				console.warn('data contains duplicate loop-back elements', matches)
-			}
-			if (matches.length === 0) {
-				throw new Error('Could not find loop-back element in data')
-			}
-
-			const loop_back_target = matches[0].target
-
-			// Important: use SAME coordinates as your original code
-			return trace_and_assemble_json(
-				element,
-				fromEndpoint,
-				Number(loop_back_target.style.gridColumnStart),
-				Number(loop_back_target.style.gridRowEnd)
-			)
-		}
-
-		console.warn('hit something unexpected, stopping chain', hit)
 		return null
 	}
 
-	// --- 3. Wire balancer outputs (mirrors your two calls) ------------------
-
-	for (let i = 0; i < all_balancer_elements.length; i++) {
-		const el = all_balancer_elements[i]
-		const nodeId = getNodeIdForElement(el)
-
-		const rowEnd = Number(el.style.gridRowEnd)
-		const colStart = Number(el.style.gridColumnStart)
-		const colEnd   = Number(el.style.gridColumnEnd)
-
-		// Left side: output_a
-		trace_and_assemble_json(
-			el,
-			{ nodeId, port: 'output_a' },
-			colStart,
-			rowEnd
-		)
-
-		// Right side: output_b — note the original: gridColumnEnd - 1
-		trace_and_assemble_json(
-			el,
-			{ nodeId, port: 'output_b' },
-			colEnd - 1,
-			rowEnd
-		)
-	}
-
-	// --- 4. Input lanes (mirrors your input_dlvts loop) ---------------------
-
-	const inputs = []
-	for (let i = 0; i < amount_of_input_lanes; i++) {
-		const colIndex = i + 1
-
-		const input_lane_elements = Array.from(main_grid.children)
-			.filter(el =>
-				el.className === 'input-flow-display' &&
-				Number(el.style.gridColumnStart) - 1 === i
-			)
-
-		if (input_lane_elements.length > 1) {
-			console.warn('data contains duplicate input lane elements', input_lane_elements)
-		}
-		if (input_lane_elements.length === 0) {
-			throw new Error('Could not find input lane element of this column')
-		}
-
-		const el = input_lane_elements[0]
-		const nodeId = `input_lane_${colIndex}`
-
-		nodes.push({
-			id: nodeId,
-			type: 'input',
-			grid: {
-				rowStart: Number(el.style.gridRowStart) || 1,
-				rowEnd:   Number(el.style.gridRowEnd)   || 1,
-				colStart: Number(el.style.gridColumnStart),
-				colEnd:   Number(el.style.gridColumnEnd) || Number(el.style.gridColumnStart)
-			},
-			ports: {
-				output: null
+	/**
+	 * 
+	 * @param {PositionGrid} startPosition 
+	 * @param {number} maxSteps 
+	 * @returns {null|BalancerNode}
+	 */
+	const traceDown = (startPosition, maxSteps)=>{
+		for (let i = 0; i < maxSteps; i++) {
+			/**@type {PositionGrid} */
+			const stepPos = {row:startPosition.row + i, column:startPosition.column}
+			const overlap = checkOverlap(stepPos)
+			if (!overlap) {
+				continue
 			}
-		})
-
-		inputs.push({ id: nodeId, column: colIndex })
-
-		// Same as original: start from (i+1, 1)
-		trace_and_assemble_json(
-			el,
-			{ nodeId, port: 'output' },
-			colIndex,
-			1
-		)
+			if (overlap.id.startsWith('b')) {
+				return overlap
+			}
+			if (overlap.id.startsWith('l')) {
+				/**@type {LoopBackNode} */
+				const lb = overlap
+				return traceDown(lb.output, maxSteps)
+			}
+		}
+		return null
 	}
 
-	// --- 5. Hanging outputs → output nodes (mirrors your output_dlvts) ------
+	const maxSteps = Math.max(...layout.balancers.map(b => b.row), ...layout.loopBacks.map(l => l.input.row)) + 5
 
-	const outputs = []
-	console.log('hanging_outputs:', hanging_outputs)
+	const resultBalancers = layout.balancers.map(balancer => {
+		/**@type {PositionGrid} */
+		const outAStart = { row: balancer.row + 1, column: balancer.inputColA }
+		/**@type {PositionGrid} */
+		const outBStart = { row: balancer.row + 1, column: balancer.inputColB }
 
-	hanging_outputs.forEach(h => {
-		const nodeId = `output_lane_${h.lane}`
+		let targetA
+		let targetB
 
-		// Create output node only once per lane
-		if (!outputs.find(o => o.id === nodeId)) {
-			outputs.push({ id: nodeId, column: h.lane })
-
-			nodes.push({
-				id: nodeId,
-				type: 'output',
-				grid: {
-					rowStart: null,
-					rowEnd:   null,
-					colStart: h.lane,
-					colEnd:   h.lane
-				},
-				ports: {
-					input: null
-				}
-			})
+		if (balancer.outputA){
+			targetA = traceDown(outAStart, maxSteps)
+			console.log('targetA', targetA)
+		}
+		if (balancer.outputB){
+			targetB = traceDown(outBStart, maxSteps)
+			console.log('targetB', targetB)
 		}
 
-		connections.push({
-			from: { nodeId: h.fromNodeId, port: h.fromPort },
-			to:   { nodeId,              port: 'input' }
-		})
+		if (balancer.outputA && !targetA) targetA = {id:'output'}
+		if (balancer.outputB && !targetB) targetB = {id:'output'}
+
+		const resultBalancer = {id:balancer.id}
+		if (balancer.outputA) resultBalancer.outA = {target:targetA.id, column: balancer.inputColA}
+		if (balancer.outputB) resultBalancer.outB = {target:targetB.id, column: balancer.inputColB}
+		return resultBalancer
 	})
 
-	console.groupEnd()
+	const resultInputs = []
+	for (let i = 0; i < layout.inputs; i++) {
+		const start = {row:0, column: i+1}
+		const target = traceDown(start, maxSteps)
 
-	return { nodes, inputs, outputs, connections }
+		if (!target) {
+			resultInputs.push({target:'output', column: i+1})
+		} else {
+			resultInputs.push
+			({
+				target:target.id,
+				column: i+1
+			})
+		}
+	}
+
+	return {
+		inputs:resultInputs,
+		balancers:resultBalancers
+	}
 }
 
 
 
 document.getElementById('compile-json-button').addEventListener('click', () => {
 	console.log('compile as json')
-	console.log(compile_main_grid_elements_layout_as_json())
+	//console.log(compileCHLasJson())
 })
+
+
+
+/**
+ * @type {CompiledHtmlLayout}
+ */
+const compiledHtmlLayout = {
+	inputs:1,
+	balancers:[{
+		id:        'b:0',
+		row:       3,
+		inputColA: 1,
+		inputColB: 2,
+		outputA:   true,
+		outputB:   true,
+	}],
+	loopBacks:[{
+		id:       'l:0',
+		direction:'right',
+		input:    {row:4, column:2},
+		output:   {row:2, column:2}
+	}]
+}
+console.log(compileCHLAsJson(compiledHtmlLayout))
+/*
+expected return:
+{
+	inputs:[
+		{target:'a', idx:0}
+	],
+	balancers:
+	[{
+		id:'a',
+		outA:{target:'output', idx:0},
+		outB:{target:'a', idx:1}
+	}]
+}
+*/
 
