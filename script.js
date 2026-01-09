@@ -876,7 +876,7 @@ function compileCHLAsJson(layout) {
 
 	return {
 		inputs:resultInputs,
-		balancers:resultBalancers
+		sNodes:resultBalancers
 	}
 }
 
@@ -915,16 +915,7 @@ const compiledHtmlLayout = {
 console.log(compileCHLAsJson(compiledHtmlLayout))
 /*
 expected return:
-{
-	inputs:[
-		{target:'a', idx:0}
-	],
-	balancers:
-	[{
-		id:'a',
-		outA:{target:'output', idx:0},
-		outB:{target:'a', idx:1}
-	}]
-}
+see simulation.js
+{Balancer} schema for more info
 */
 
