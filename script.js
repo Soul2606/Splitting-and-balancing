@@ -764,9 +764,6 @@ document.getElementById('compile-html-button').addEventListener('click', ()=> {
  * @returns 
 */
 function compileCHLAsJson(layout) {
-	console.groupCollapsed('compileCHLasJson')
-	console.log('layout', layout)
-	console.groupEnd()
 
 	/**
 	 * @param {PositionGrid} position 
@@ -782,17 +779,14 @@ function compileCHLAsJson(layout) {
 	}
 
 	/**
-	 * @param {PositionGrid} position 
+	 * @param {number} column 
 	 * @param {BalancerNode} balancer 
 	 * @returns {"left"|"right"|null}
 	 */
-	const getSide = (position, balancer)=>{
-		if (balancer.row !== position.row) {
-			return null
-		}
-		if (balancer.inputColA === position.column) {
+	const getSide = (column, balancer)=>{
+		if (balancer.inputColA === column) {
 			return "left"
-		} else if (balancer.inputColB === position.column) {
+		} else if (balancer.inputColB === column) {
 			return "right"
 		}
 		return null
@@ -802,7 +796,7 @@ function compileCHLAsJson(layout) {
 	 * 
 	 * @param {PositionGrid} startPosition 
 	 * @param {number} maxSteps 
-	 * @returns {null|BalancerNode}
+	 * @returns {null|{hit:BalancerNode, position:PositionGrid}}
 	 */
 	const traceDown = (startPosition, maxSteps)=>{
 		for (let i = 0; i < maxSteps; i++) {
@@ -813,7 +807,7 @@ function compileCHLAsJson(layout) {
 				continue
 			}
 			if (overlap.id.startsWith('b')) {
-				return overlap
+				return {hit:overlap, position:stepPos}
 			}
 			if (overlap.id.startsWith('l')) {
 				/**@type {LoopBackNode} */
@@ -832,39 +826,50 @@ function compileCHLAsJson(layout) {
 		/**@type {PositionGrid} */
 		const outBStart = { row: balancer.row + 1, column: balancer.inputColB }
 
-		let targetA
-		let targetB
+		let traceA = null
+		let traceB = null
 
 		if (balancer.outputA){
-			targetA = traceDown(outAStart, maxSteps)
-			console.log('targetA', targetA)
+			traceA = traceDown(outAStart, maxSteps)
 		}
 		if (balancer.outputB){
-			targetB = traceDown(outBStart, maxSteps)
-			console.log('targetB', targetB)
+			traceB = traceDown(outBStart, maxSteps)
 		}
 
-		if (balancer.outputA && !targetA) targetA = {id:'output'}
-		if (balancer.outputB && !targetB) targetB = {id:'output'}
-
 		const resultBalancer = {id:balancer.id}
-		if (balancer.outputA) resultBalancer.outA = {target:targetA.id, column: balancer.inputColA}
-		if (balancer.outputB) resultBalancer.outB = {target:targetB.id, column: balancer.inputColB}
+		if (balancer.outputA) {
+			if (traceA) {
+				const side = getSide(traceA.position.column, traceA.hit)
+				if (side === null) throw new Error("Could not find side despite hitting the balancer");
+				resultBalancer.outA = {target:traceA.hit.id, slot: side === 'left' ? 1 : 2}
+			} else {
+				resultBalancer.outA = {target:'output', slot: balancer.inputColA}
+			}
+		}
+		if (balancer.outputB) {
+			if (traceB) {
+				const side = getSide(traceB.position.column, traceB.hit)
+				if (side === null) throw new Error("Could not find side despite hitting the balancer");
+				resultBalancer.outB = {target:traceB.hit.id, slot: side === 'left' ? 1 : 2}
+			} else {
+				resultBalancer.outB = {target:'output', slot: balancer.inputColB}
+			}
+		}
 		return resultBalancer
 	})
 
 	const resultInputs = []
 	for (let i = 0; i < layout.inputs; i++) {
 		const start = {row:0, column: i+1}
-		const target = traceDown(start, maxSteps)
+		const trace = traceDown(start, maxSteps)
 
-		if (!target) {
-			resultInputs.push({target:'output', column: i+1})
+		if (!trace) {
+			resultInputs.push({target:'output', slot: i+1})
 		} else {
 			resultInputs.push
 			({
-				target:target.id,
-				column: i+1
+				target:trace.hit.id,
+				slot: i+1
 			})
 		}
 	}
@@ -879,7 +884,10 @@ function compileCHLAsJson(layout) {
 
 document.getElementById('compile-json-button').addEventListener('click', () => {
 	console.log('compile as json')
-	//console.log(compileCHLasJson())
+	console.log(
+		compileCHLAsJson(compile_html_elements(main_grid, all_loop_back_elements_and_target, amount_of_input_lanes)),
+		JSON.stringify(compileCHLAsJson(compile_html_elements(main_grid, all_loop_back_elements_and_target, amount_of_input_lanes)))
+	)
 })
 
 
