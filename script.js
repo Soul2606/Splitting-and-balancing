@@ -84,6 +84,7 @@ const add_balancer_button = document.getElementById('add-balancer-button')
 const add_loop_back_button = document.getElementById('add-loop-back-button')
 
 let can_drag = true
+let amount_of_input_lanes = 0
 
 const PHI = 1.618033988749
 
@@ -438,8 +439,6 @@ function set_main_grid_width(){
 
 
 
-let amount_of_input_lanes = 0
-
 add_input_lane_button.addEventListener('click', ()=>{
 	const new_input_lane = document.createElement('div')
 	new_input_lane.className = 'input-flow-display'
@@ -473,9 +472,15 @@ function remove_input_lane(){
 add_balancer_button.addEventListener('click', ()=>{
 	const balancer_element = create_adjustable_grid_spanner(2, 'balancer')
 
-	const toggle_balancer_output = (element)=>{
+	balancer_element.setAttribute('data-out-disabled', 'none')
+	const toggle_balancer_output = (element, right_side) => {
 		element.classList.toggle('balancer-flow-display-disabled')
+		const side = right_side ? 'right' : 'left'
+		const isDisabled = element.classList.contains('balancer-flow-display-disabled')
+		const newState = isDisabled ? side : 'none'
+		balancer_element.setAttribute('data-out-disabled', newState)
 	}
+
 
 	let flow_visualizer_element_in_a
 	let flow_visualizer_element_in_b
@@ -487,7 +492,7 @@ add_balancer_button.addEventListener('click', ()=>{
 			root.className = 'balancer-flow-display-input'
 		}else{
 			root.className = 'balancer-flow-display-output'
-			root.addEventListener('click', ()=>{toggle_balancer_output(root)})
+			root.addEventListener('click', ()=>{toggle_balancer_output(root, right_side)})
 		}
 		let flow_visualizer
 		root.addEventListener('mouseenter', ()=>{
@@ -653,6 +658,96 @@ function random_color_seeded(seed) {
 
 
 
+
+/**
+ * A single balancer extracted from the HTML grid.
+ * A = left side, B = right side.
+ *
+ * @typedef {Object} BalancerNode
+ * @property {string} id               Unique balancer ID, e.g. "b:0"
+ * @property {number} row              The grid row where the balancer starts
+ * @property {number} inputColA        Column index for left input
+ * @property {number} inputColB        Column index for right input
+ * @property {number|null} outputColA  Column index for left output (null if disabled)
+ * @property {number|null} outputColB  Column index for right output (null if disabled)
+*/
+
+/**
+ * A loop‑back element, connecting one grid position back to another.
+ *
+ * @typedef {Object} LoopBackNode
+ * @property {string} id                Unique loop‑back ID, e.g. "l:0"
+ * @property {"left"|"right"} direction Which side the loop‑back originates from
+ * @property {{row:number, column:number}} input   Entry point of the loop‑back
+ * @property {{row:number, column:number}} output  Exit point of the loop‑back
+*/
+
+/**
+ * The full compiled layout extracted from the HTML grid.
+ *
+ * @typedef {Object} CompiledHtmlLayout
+ * @property {number} inputs            Number of input lanes
+ * @property {BalancerNode[]} balancers Array of all balancer nodes
+ * @property {LoopBackNode[]} loop_backs Array of all loop‑back nodes
+*/
+
+
+
+
+
+
+/**
+ * 
+ * @param {HTMLElement} grid 
+ * @param {HTMLElement[]} all_loop_back_elements_and_target 
+ * @param {number} inputs 
+ * @returns {CompiledHtmlLayout}
+*/
+function compile_html_elements(grid, all_loop_back_elements_and_target, inputs) {
+	// A is left, B is right
+	console.log(grid, all_loop_back_elements_and_target)
+	return {
+		inputs,
+		balancers:Array.from(grid.children)
+		.filter(el => el.classList.contains('balancer'))
+		.map((el, idx)=>{
+			/**@type {number[]} */
+			const area = el.style.gridArea.split('/').map(s=>Number(s))
+			const output_disable = el.getAttribute('data-out-disabled')
+			return {
+				id:'b:'+String(idx),
+				row: area[0],
+				inputColA: area[1],
+				inputColB: area[3]-1,
+				outputColA: output_disable==='left' ? null : area[1],
+				outputColB: output_disable==='right' ? null : area[3]-1,
+			}
+		})
+		,
+		loop_backs:Array.from(all_loop_back_elements_and_target)
+		.map((lb, idx)=>{
+			/**@type {number[]} */
+			const area = lb.element.style.gridArea.split('/').map(s=>Number(s))
+			const direction = lb.element.classList.contains('loop-back-right') ? 'right' : 'left'
+			return {
+				id:'l:'+String(idx),
+				direction,
+				input:{
+					row: area[0],
+					column: direction==='right' ? area[1] : area[3]-1 ,
+				},
+				output:{
+					row: Number(lb.target.style.gridRowStart),
+					column: direction==='left' ? area[1] : area[3]-1 ,
+				}
+			}
+		})
+	}
+}
+document.getElementById('compile-html-button').addEventListener('click', ()=> {
+	console.log('compile HTML')
+	console.log(compile_html_elements(main_grid, all_loop_back_elements_and_target, amount_of_input_lanes))
+})
 
 
 
