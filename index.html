@@ -5,8 +5,8 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Document</title>
 	<link rel="stylesheet" href="style.css">
-	<script type="module" src="script.js" defer></script>
 	<script type="module" src="simulation.js" defer></script>
+	<script type="module" src="script.js" defer></script>
 </head>
 <body>
 	<div id="main-grid">
@@ -19,8 +19,9 @@
 		<div id="add-loop-back-button">
 			<p style="pointer-events: none; user-select: none;">Add loop back</p>
 		</div>
-		<button id="compile-html-button">Compile HTML</button>
-		<button id="compile-json-button">Compile as JSON</button>
+		<button id="run-sim-button">Run Simulation</button>
+		<button id="compile-html-button" style="margin: 5px 0; background-color: gray;">Compile HTML</button>
+		<button id="compile-json-button" style="margin: 5px 0; background-color: gray;">Compile as JSON</button>
 	</div>
 	<!--
 	<div id="debug-box" style="width: 200px; height: 100px; border: solid white 1px;"></div>

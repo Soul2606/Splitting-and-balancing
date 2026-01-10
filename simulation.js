@@ -1,6 +1,4 @@
 
-console.log('simulation.js')
-
 
 /**
  * returns alphabetical sequence like Excel columns
@@ -171,7 +169,7 @@ Example:
  * @param {Balancer} balancer 
  * @returns {BalancerSim}
  */
-function init(balancer) {
+export function init(balancer) {
   return {
     inputs: balancer.inputs.map((route, idx) => ({
       route,
@@ -198,7 +196,7 @@ function init(balancer) {
  * @param {BalancerSim} balancerState 
  * @return {{state:BalancerSim, output:OutputState[]}}  
  */
-function tick(balancerState) {
+export function tick(balancerState) {
 
 	/**
 	 * @param {OutputState} outState 
@@ -311,6 +309,7 @@ function tick(balancerState) {
 }
 
 
+/*
 const initState = init(JSON.parse(`{"inputs":[{"target":"b:0","slot":1}],"sNodes":[{"id":"b:0","outA":{"target":"output","slot":1},"outB":{"target":"output","slot":2}}]}`))
 let state = initState
 console.log(state)
@@ -319,3 +318,4 @@ for (let i = 0; i < 10; i++) {
 	state = result.state
 	console.log('output', result.output, '\nstate', result.state)
 }
+*/

@@ -1,4 +1,5 @@
 
+import { init, tick } from "./simulation.js";
 
 
 
@@ -892,30 +893,27 @@ document.getElementById('compile-json-button').addEventListener('click', () => {
 
 
 
-/**
- * @type {CompiledHtmlLayout}
- */
-const compiledHtmlLayout = {
-	inputs:1,
-	balancers:[{
-		id:        'b:0',
-		row:       3,
-		inputColA: 1,
-		inputColB: 2,
-		outputA:   true,
-		outputB:   true,
-	}],
-	loopBacks:[{
-		id:       'l:0',
-		direction:'right',
-		input:    {row:4, column:2},
-		output:   {row:2, column:2}
-	}]
-}
-console.log(compileCHLAsJson(compiledHtmlLayout))
-/*
-expected return:
-see simulation.js
-{Balancer} schema for more info
-*/
+// in script.js
+document.getElementById('run-sim-button').addEventListener('click', () => {
+	console.log('run simulation')
+	let simLoopId = null
+	if (simLoopId) {
+		clearTimeout(simLoopId)
+		simLoopId = null
+		console.log('stopped previous simulation')
+	}
 
+	const initState = init(compileCHLAsJson(compile_html_elements(main_grid, all_loop_back_elements_and_target, amount_of_input_lanes)))
+
+	let state = initState
+	console.log(state)
+
+	function loop() {
+		const result = tick(state)
+		state = result.state
+		console.log('output', result.output)
+		console.table(result.output)
+		simLoopId = setTimeout(loop, 1000)
+	}
+	loop()
+})
