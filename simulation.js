@@ -51,14 +51,14 @@ class Fraction {
 		this.den = den
 	}
 
-	add(value){
+	add(value) {
 		if (value instanceof Fraction) {
-			this.num += this.den * value.num
-			this.den *= value.den
+			this.num = this.num * value.den + this.den * value.num;
+			this.den = this.den * value.den;
 		} else if (typeof value === 'number') {
-			this.num += this.den * value
+			this.num = this.num + this.den * value;
 		}
-		return this
+		return this;
 	}
 
 	subtract(value){
@@ -155,6 +155,7 @@ Example:
  * @property {string} id
  * @property {{route:Route, state:OutputState[]}} [outA]
  * @property {{route:Route, state:OutputState[]}} [outB]
+ * @property {OutputState[]} input
 */
 /**
  * @typedef {object} BalancerSim
@@ -183,7 +184,8 @@ export function init(balancer) {
         : undefined,
       outB: node.outB
         ? { route: node.outB, state: [] }
-        : undefined
+        : undefined,
+		input: [],
     }))
   };
 }
@@ -221,7 +223,7 @@ export function tick(balancerState) {
 	 * @returns {SplitterNodeState}
 	 */
 	const cloneNode = (node) => {
-		const newNode = {id:node.id}
+		const newNode = {id:node.id, input:node.input}
 		if (node.outA) {
 			newNode.outA = {
 				route:structuredClone(node.outA.route),
@@ -284,12 +286,12 @@ export function tick(balancerState) {
 
 	// Collect input flows
 	for (const input of balancerState.inputs) {
-		addFlow(input.route, [input.state])
+		addFlow(input.route, [cloneOutState(input.state)])
 	}
 
 	for (const node of balancerState.sNodes) {
 		for (const out of getOuts(node)) {
-			addFlow(out.route, out.state)
+			addFlow(out.route, out.state.map(cloneOutState))
 		}
 	}
 
@@ -312,6 +314,7 @@ export function tick(balancerState) {
 				}
 			})
 		}
+		newNode.input = [...allInFlow]
 		return newNode
 	})
 
