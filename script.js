@@ -828,7 +828,7 @@ function compileCHLAsJson(layout) {
 			if (overlap.id.startsWith('l')) {
 				/**@type {LoopBackNode} */
 				const lb = overlap
-				return traceDown(lb.output, maxSteps)
+				return traceDown(lb.output, maxSteps - i - 1)
 			}
 		}
 		return null
