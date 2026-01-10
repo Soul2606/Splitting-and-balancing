@@ -196,59 +196,126 @@ function init(balancer) {
 
 /**
  * @param {BalancerSim} balancerState 
- * @return {BalancerSim}  
+ * @return {{state:BalancerSim, output:OutputState[]}}  
  */
 function tick(balancerState) {
-	/**@type {Map<string, OutputState[]>} */
-	const incoming = new Map()
-	for (let i = 0; i < balancerState.inputs.length; i++) {
-		const input = balancerState.inputs[i];
-		const target = incoming.get(input.route.target)
-		if (target) {
-			target.push(input.state)
-		} else {
-			incoming.set(input.route.target, [input.state])
+
+	/**
+	 * @param {OutputState} outState 
+	 * @returns {OutputState}
+	 */
+	const cloneOutState = (outState)=>{
+		return {
+			id:outState.id,
+			amount:Fraction.from(outState.amount)
 		}
 	}
-	for (const splitter of balancerState.sNodes) {
-		const outs = []
-		if (splitter.outA) outs.push(splitter.outA)
-		if (splitter.outB) outs.push(splitter.outB)
-		outs.forEach(out=>{
-			const target = incoming.get(out.route.target)
-			if (target) {
-				target.push(...out.state)
-			} else {
-				incoming.set(out.route.target, Array.from(out.state))
+
+	/**
+	 * @param {SplitterNodeState} node 
+	 * @returns {SplitterNodeState}
+	 */
+	const cloneNode = (node) => {
+		const newNode = {id:node.id}
+		if (node.outA) {
+			newNode.outA = {
+				route:structuredClone(node.outA.route),
+				state:node.outA.state.map(cloneOutState)
 			}
-		})
+		}
+		if (node.outB) {
+			newNode.outB = {
+				route:structuredClone(node.outB.route),
+				state:node.outB.state.map(cloneOutState)
+			}
+		}
+		return newNode
 	}
 
-	// !!!!!!!!!!!!!!!!!!!!!!!!---------------------------- WIP --------------------------------------!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	const newSplitterStates = balancerState.sNodes.map(node => {
-		const allInFlow = incoming.get(node.id)
-		if (!allInFlow) {
-			const newNode = {id:node.id}
-			if (node.outA) newNode.outA = structuredClone(node.outA)
-			if (node.outB) newNode.outA = structuredClone(node.outB)
-			return newNode
-		}
+	/**
+	 * @param {SplitterNodeState} node 
+	 * @returns 
+	 */
+	const getOuts = (node) => {
+		const outs = []
+		if (node.outA) outs.push(node.outA)
+		if (node.outB) outs.push(node.outB)
+		return outs
+	}
 
+	/**
+	 * @param {OutputState[]} allInFlow 
+	 */
+	const compress = (allInFlow) => {
 		/**@type {Map<string, Fraction>} */
 		const compressedInFlow = new Map()
 		for (const inFlow of allInFlow) {
-			console.log('help')
 			const exists = compressedInFlow.get(inFlow.id)
 			if (exists) {
 				exists.add(inFlow.amount)
 			} else {
-				
+				compressedInFlow.set(inFlow.id, Fraction.from(inFlow.amount))
 			}
 		}
+		return compressedInFlow
+	}
+
+
+	/**@type {Map<string, OutputState[]>} */
+	const incoming = new Map()
+
+	// Collect input flows
+	for (const input of balancerState.inputs) {
+		const arr = incoming.get(input.route.target);
+		if (arr) arr.push(input.state);
+		else incoming.set(input.route.target, [input.state]);
+	}
+
+	for (const node of balancerState.sNodes) {
+		for (const out of getOuts(node)) {
+			const arr = incoming.get(out.route.target)
+			if (arr) arr.push(...out.state)
+			else incoming.set(out.route.target, Array.from(out.state))
+		}
+	}
+
+
+	const newSplitterStates = balancerState.sNodes.map(node => {
+		const allInFlow = incoming.get(node.id)
+		if (!allInFlow) {
+			return cloneNode(node)
+		}
+
+		const compressedInFlow = compress(allInFlow)
+
+		const newNode = cloneNode(node)
+		const outs = getOuts(newNode)
+		for (const out of outs) {
+			out.state = Array.from(compressedInFlow).map(([key,val]) => {
+				return {
+					id:key,
+					amount:Fraction.from(val).divide(outs.length)
+				}
+			})
+		}
+		return newNode
 	})
-	return balancerState;
+
+	return {
+		state:{
+			inputs:balancerState.inputs,
+			sNodes:newSplitterStates
+		},
+		output:incoming.get('output') ?? []
+	}
 }
 
 
-console.log(init(JSON.parse(`{"inputs":[{"target":"b:0","slot":1}],"sNodes":[{"id":"b:0","outA":{"target":"output","slot":1},"outB":{"target":"output","slot":2}}]}`)))
-
+const initState = init(JSON.parse(`{"inputs":[{"target":"b:0","slot":1}],"sNodes":[{"id":"b:0","outA":{"target":"output","slot":1},"outB":{"target":"output","slot":2}}]}`))
+let state = initState
+console.log(state)
+for (let i = 0; i < 10; i++) {
+	const result = tick(state)
+	state = result.state
+	console.log('output', result.output, '\nstate', result.state)
+}
