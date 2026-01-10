@@ -193,8 +193,15 @@ export function init(balancer) {
 
 
 /**
+ * @typedef {Object.<number, Object.<string, Fraction>>} OutputMap
+ *    Maps output slots to compressed output objects.
+*/
+
+
+
+/**
  * @param {BalancerSim} balancerState 
- * @return {{state:BalancerSim, output:OutputState[]}}  
+ * @return {{state:BalancerSim, output:OutputMap}}  
  */
 export function tick(balancerState) {
 
@@ -262,18 +269,27 @@ export function tick(balancerState) {
 	/**@type {Map<string, OutputState[]>} */
 	const incoming = new Map()
 
+	/** Map      <slot,   state[]>
+	 * @type {Map<number, OutputState[]>} */
+	const toOutput = new Map()
+
+	function addFlow(route, states) {
+		const map = route.target === "output" ? toOutput : incoming;
+		const key = route.target === "output" ? route.slot : route.target;
+		
+		const arr = map.get(key);
+		if (arr) arr.push(...states);
+		else map.set(key, [...states]);
+	}
+
 	// Collect input flows
 	for (const input of balancerState.inputs) {
-		const arr = incoming.get(input.route.target);
-		if (arr) arr.push(input.state);
-		else incoming.set(input.route.target, [input.state]);
+		addFlow(input.route, [input.state])
 	}
 
 	for (const node of balancerState.sNodes) {
 		for (const out of getOuts(node)) {
-			const arr = incoming.get(out.route.target)
-			if (arr) arr.push(...out.state)
-			else incoming.set(out.route.target, Array.from(out.state))
+			addFlow(out.route, out.state)
 		}
 	}
 
@@ -304,7 +320,9 @@ export function tick(balancerState) {
 			inputs:balancerState.inputs,
 			sNodes:newSplitterStates
 		},
-		output:incoming.get('output') ?? []
+		output:Object.fromEntries(Array.from(toOutput).map(([key, val])=>
+			[key, Object.fromEntries(compress(val))]
+		))
 	}
 }
 

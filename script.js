@@ -73,6 +73,21 @@ function prevent_overlap(elements_tracked, static_elements){
 
 
 
+/**
+ * @template T, U
+ * @param {Object.<string, T>} obj
+ * @param {(key: string, value: T) => U} func
+ * @returns {Object.<string, U>}
+ */
+function mapObj(obj, func) {
+	return Object.fromEntries(
+		Object.entries(obj).map(([key, value]) => [key, func(key, value)])
+	);
+}
+
+
+
+
 
 
 const main_grid = document.getElementById('main-grid')
@@ -911,8 +926,12 @@ document.getElementById('run-sim-button').addEventListener('click', () => {
 	function loop() {
 		const result = tick(state)
 		state = result.state
-		console.log('output', result.output)
-		console.table(result.output)
+		console.log('state', result.state)
+		console.table(
+			mapObj(result.output, (slotKey, slotObj)=>
+				mapObj(slotObj, (id, fraction) => fraction.toStr())
+			)
+		)
 		simLoopId = setTimeout(loop, 1000)
 	}
 	loop()
