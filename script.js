@@ -929,10 +929,10 @@ document.getElementById('run-sim-button').addEventListener('click', () => {
 		console.log('state', result.state)
 		console.table(
 			mapObj(result.output, (slotKey, slotObj)=>
-				mapObj(slotObj, (id, fraction) => fraction.toStr())
+				mapObj(slotObj, (id, fraction) => fraction.num / fraction.den)
 			)
 		)
-		simLoopId = setTimeout(loop, 1000)
+		simLoopId = setTimeout(loop, 10)
 	}
 	loop()
 })

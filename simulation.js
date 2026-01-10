@@ -46,10 +46,70 @@ class Fraction {
 		return s
 	}
 
+	#LIMIT
+
 	constructor(num=0, den=1) {
 		this.num = num
 		this.den = den
+		this.#LIMIT = 1e12
 	}
+
+	gcd(){
+		let a = this.num
+		let b = this.den
+		a = Math.abs(a);
+		b = Math.abs(b);
+		while (b !== 0) { const t = b;
+			b = a % b;
+			a = t;
+			} 
+		return a;	
+	}
+
+	reduce() {
+		// Infinity / Infinity → treat as 0/1
+		if (!Number.isFinite(this.num) && !Number.isFinite(this.den)) {
+			this.num = 0;
+			this.den = 1;
+			return this;
+		}
+
+		// Infinity / finite → Infinity
+		if (!Number.isFinite(this.num)) {
+			this.num = Infinity;
+			this.den = 1;
+			return this;
+		}
+
+		// finite / Infinity → 0/1
+		if (!Number.isFinite(this.den)) {
+			this.num = 0;
+			this.den = 1;
+			return this;
+		}
+
+		// Normal finite case
+		const g = this.gcd();
+		this.num /= g;
+		this.den /= g;
+
+		// Keep denominator positive
+		if (this.den < 0) {
+			this.den = -this.den;
+			this.num = -this.num;
+		}
+
+		// >LIMIT / >LIMIT → tone down at the cost of accuracy
+		if (this.num > this.#LIMIT && this.den > this.#LIMIT) {
+			const f = Math.max(this.num / 10000, this.den / 10000)
+			this.num = Math.ceil(this.num / f)
+			this.den = Math.ceil(this.den / f)
+			return this
+		}
+
+		return this;
+	}
+
 
 	add(value) {
 		if (value instanceof Fraction) {
@@ -259,7 +319,7 @@ export function tick(balancerState) {
 		for (const inFlow of allInFlow) {
 			const exists = compressedInFlow.get(inFlow.id)
 			if (exists) {
-				exists.add(inFlow.amount)
+				exists.add(inFlow.amount).reduce()
 			} else {
 				compressedInFlow.set(inFlow.id, Fraction.from(inFlow.amount))
 			}
