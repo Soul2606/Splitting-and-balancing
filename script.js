@@ -894,9 +894,9 @@ document.getElementById('compile-json-button').addEventListener('click', () => {
 
 
 // in script.js
+let simLoopId = null
 document.getElementById('run-sim-button').addEventListener('click', () => {
 	console.log('run simulation')
-	let simLoopId = null
 	if (simLoopId) {
 		clearTimeout(simLoopId)
 		simLoopId = null
