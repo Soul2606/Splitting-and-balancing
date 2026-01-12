@@ -6,18 +6,17 @@ p{
     color: white;
 }
 
-#main-grid{
-    width: 10px;
-    min-width: 98%;
+#main-grid {
     display: grid;
+    grid-auto-flow: row;          /* or column, depending on how you place items */
+    grid-auto-columns: 200px;     /* every new column is 200px wide */
+    grid-auto-rows: 100px;        /* every new row is 200px tall */
     gap: 15px;
-    grid-template-columns: repeat(auto-fit, 200px);
-    border: none;
-    border-left: solid 1px white;
+    width: 100%;
     padding: 5px;
-    margin-bottom: 5px;
     background-color: darkslateblue;
 }
+
 
 #add-input-lane-button{
     height: 50px;
