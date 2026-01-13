@@ -89,6 +89,7 @@ function mapObj(obj, func) {
 
 
 
+const svgNS = 'http://www.w3.org/2000/svg'
 
 const main_grid = document.getElementById('main-grid')
 
@@ -278,6 +279,7 @@ function create_adjustable_grid_spanner(min_span = 1, class_name = '', functions
 		}
 		call_functions_with_parameter(functions_called_when_grid_shift, drag_button_right)
 	})
+	drag_button_right.className = 'drag-button drag-button-x'
 	
 
 	const drag_button_left = create_drag_button(100, mouse_position=>{
@@ -288,16 +290,18 @@ function create_adjustable_grid_spanner(min_span = 1, class_name = '', functions
 		}
 		call_functions_with_parameter(functions_called_when_grid_shift, drag_button_left)
 	})
+	drag_button_left.className = 'drag-button drag-button-x'
 
 
 	const drag_button_center = create_drag_button(100, mouse_position=>{
 		if (mouse_position.y > 0) {
 			gird_row_shift(1,root,min_span)
-		}else{
-			gird_row_shift(-1,root,min_span)
+		}else  if (Number(root.style.gridRowStart) > 2 && Number.isFinite(Number(root.style.gridRowStart))){
+			gird_row_shift(-1,root)
 		}
 		call_functions_with_parameter(functions_called_when_grid_shift, drag_button_center)
 	})
+	drag_button_center.className = 'drag-button drag-button-y'
 
 
 	drag_button_container.appendChild(drag_button_left)
@@ -436,12 +440,78 @@ function create_flow_visualizer_line(column, row_start, row_end) {
 
 
 
+function createLaneIoSvg() {
+	const svg = document.createElementNS(svgNS, 'svg')
+	svg.classList.add('lane-io-svg')
+	svg.setAttribute('width', '100%')
+	svg.setAttribute('height', '100%')
+	svg.setAttribute('viewBox', '0 0 100 100')
+	svg.setAttribute('xmlns', svgNS)
+	svg.setAttribute('preserveAspectRatio', 'none')
+	
+	const path = document.createElementNS(svgNS, 'path')
+	path.setAttribute('fill', '#0070f3')
+	path.setAttribute(
+		'd',
+		'm0,0 L50,50 L100,0 L100,50 L50,100 L0,50 z'
+	)
+	svg.append(path)
+	
+	return svg
+}
+
+
+
+
+function createUTurnSvg() {
+	const svg = document.createElementNS(svgNS, "svg");
+	svg.setAttribute("viewBox", "0 0 120 120");
+	svg.setAttribute("xmlns", svgNS);
+	svg.setAttribute('preserveAspectRatio', 'none')
+		
+	const path = document.createElementNS(svgNS, "path");
+	path.setAttribute("fill", "#6e1d9c");
+	path.setAttribute(
+		"d",
+		"M120,0 H10 V80 H0 L20,100 L40,80 H30 V20 H100 V100 H120 Z"
+	);
+
+	svg.append(path);
+
+	return svg;
+}
+
+
+
+
+function createFatArrowSvg() {
+	const svg = document.createElementNS(svgNS, "svg");
+	svg.setAttribute("viewBox", "0 0 120 120");
+	svg.setAttribute("xmlns", svgNS);
+	svg.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+
+	const path = document.createElementNS(svgNS, "path");
+	path.setAttribute("fill", "#6e1d9c");
+	path.setAttribute(
+		"d",
+		"M20,0 V60 H0 V70 L50,100 L100,70 V60 H80 V0 Z"
+	)
+
+	svg.append(path)
+
+	return svg
+}
+
+
+
+
 add_input_lane_button.addEventListener('click', ()=>{
 	const new_input_lane = document.createElement('div')
 	new_input_lane.className = 'input-flow-display'
 	new_input_lane.style.gridRow = '1/2'
 	amount_of_input_lanes++
 	new_input_lane.style.gridColumn = `${amount_of_input_lanes}/${amount_of_input_lanes + 1}`
+	new_input_lane.append(createLaneIoSvg())
 	main_grid.appendChild(new_input_lane)
 	new_input_lane.addEventListener('click', remove_input_lane)
 })
@@ -485,10 +555,11 @@ add_balancer_button.addEventListener('click', ()=>{
 	let flow_visualizer_element_out_b
 	const create_balancer_flow_display = (input, right_side)=>{
 		const root = document.createElement('div')
+		root.className = 'balancer-flow-display'
 		if (input) {
-			root.className = 'balancer-flow-display-input'
+			root.classList.add('balancer-flow-display-input')
 		}else{
-			root.className = 'balancer-flow-display-output'
+			root.classList.add('balancer-flow-display-output')
 			root.addEventListener('click', ()=>{toggle_balancer_output(root, right_side)})
 		}
 		let flow_visualizer
@@ -510,6 +581,9 @@ add_balancer_button.addEventListener('click', ()=>{
 				flow_visualizer_element_out_a = root
 			}
 		}
+		const svg = createLaneIoSvg()
+		svg.style.pointerEvents = 'none'
+		root.append(svg)
 		return root
 	}
 
@@ -557,8 +631,14 @@ add_loop_back_button.addEventListener('click', ()=>{
 	button_center_down.addEventListener('click', ()=>{gird_row_shift(1, loop_back_target)})
 	buttons_container_center.appendChild(button_center_down)
 	
-
 	loop_back_target.appendChild(buttons_container_center)
+
+	const svg = createUTurnSvg()
+	svg.style.pointerEvents = 'none'
+	svg.style.height = '100%'
+	svg.style.width = '100%'
+	svg.style.position = 'absolute'
+	loop_back_target.append(svg)
 
 
 

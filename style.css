@@ -1,3 +1,8 @@
+:root{
+    --grid-width:  150px;
+    --grid-height: 100px;
+}
+
 body{
     background-color: rgb(38, 39, 41);
 }
@@ -9,8 +14,8 @@ p{
 #main-grid {
     display: grid;
     grid-auto-flow: row;          /* or column, depending on how you place items */
-    grid-auto-columns: 200px;     /* every new column is 200px wide */
-    grid-auto-rows: 100px;        /* every new row is 200px tall */
+    grid-auto-columns: var(--grid-width);     /* every new column is x px wide */
+    grid-auto-rows: var(--grid-height);        /* every new row is x px tall */
     gap: 15px;
     width: 100%;
     padding: 5px;
@@ -20,7 +25,6 @@ p{
 
 #add-input-lane-button{
     height: 50px;
-    min-width: 200px;
     border: solid white 1px;
 }
 
@@ -50,10 +54,9 @@ p{
 
 .input-flow-display{
     height: 50px;
-    min-width: 200px;
     grid-row: 1/2;
     border: solid white 1px;
-    background-color: rgb(55, 177, 224);
+    background-color: rgb(255, 255, 255);
 }
 
 .flow-display{
@@ -62,6 +65,8 @@ p{
 
 .balancer{
     background-color: darkolivegreen;
+    border-radius: 5px;
+    overflow: hidden;
 }
 
 .loop-back{
@@ -97,19 +102,26 @@ p{
 }
 
 .loop-back-target{
-    height: 100px;
-    width: 200px;
     border: solid white 1px;
     background-color: rgb(175, 101, 175);
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
 }
 
 .drag-button{
-    width: 50px;
-    height: 50px;
     border: solid white 1px;
+}
+
+.drag-button-x{
+    width: 50px;
+    height: 30px;
+}
+
+.drag-button-y{
+    width: 30px;
+    height: 50px;
 }
 
 .balancer-flow-display-container{
@@ -120,9 +132,9 @@ p{
 .balancer-flow-display{
     box-sizing: border-box;
     height: 20px;
-    width: 200px;
+    width: var(--grid-width);
     border: solid white 1px;
-    background-color: rgb(55, 177, 224);
+    background-color: rgb(255, 255, 255);
 }
 
 .balancer-flow-display-disabled{
