@@ -970,30 +970,38 @@ document.getElementById('compile-json-button').addEventListener('click', () => {
 
 
 // in script.js
-let simLoopId = null
+let simLoop = null
+{
+	const loop = ()=>{
+		if (simLoop) simLoop()
+		setTimeout(loop, 10)
+	}
+	loop()
+}
 document.getElementById('run-sim-button').addEventListener('click', () => {
 	console.log('run simulation')
-	if (simLoopId) {
-		clearTimeout(simLoopId)
-		simLoopId = null
-		console.log('stopped previous simulation')
-	}
+
 
 	const initState = init(compileCHLAsJson(compile_html_elements(main_grid, all_loop_back_elements_and_target, amount_of_input_lanes)))
 
 	let state = initState
-	console.log(state)
+	//console.log(state)
 
-	function loop() {
+	const resultsEl = document.getElementById("results")
+	simLoop = () => {
 		const result = tick(state)
 		state = result.state
-		console.log('state', result.state)
-		console.table(
-			mapObj(result.output, (slotKey, slotObj)=>
-				mapObj(slotObj, (id, fraction) => fraction.num / fraction.den)
-			)
+		const final = mapObj(result.output, (slotKey, slotObj)=>
+			mapObj(slotObj, (id, fraction) => fraction.num / fraction.den)
 		)
-		simLoopId = setTimeout(loop, 10)
+
+		//console.log(final)
+
+		resultsEl.textContent = ""
+		for (const key in final) {
+			if (!Object.hasOwn(final, key)) continue;
+			const element = final[key];
+			resultsEl.textContent += key + " - " + Object.entries(element).map(([key, value])=>`${key}:${value.toFixed(3)}`).join(" ") + "\n"
+		}
 	}
-	loop()
 })

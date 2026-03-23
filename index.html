@@ -23,8 +23,17 @@
 		<button id="compile-html-button" style="margin: 5px 0; background-color: gray;">Compile HTML</button>
 		<button id="compile-json-button" style="margin: 5px 0; background-color: gray;">Compile as JSON</button>
 	</div>
+	<span id="results" style="white-space: pre-line;"></span>
 	<!--
 	<div id="debug-box" style="width: 200px; height: 100px; border: solid white 1px;"></div>
 	-->
+	<h3>Instructions</h3>
+	<p>Refresh the page to clear the editor.</p>
+	<p>Inputs are one the top, each input is named a, b, c... and has a value of 1.</p>
+	<p>Each node sends its value down until it hits an input or the bottom. Values will flow past objects if they do not hit the input. You can visualize this by hovering over any input or output.</p>
+	<p>Balancer: Has two inputs and outputs, both outputs = (input a + input b) / 2. One of the outputs can be disabled by clicking on them, then the output = input a + input b</p>
+	<p>Loop back: Has one input and a related element with one output. The input is not visible, it is at the opposite end of the related element. You can use a Loop Back to send values backwards.</p>
+	<p>The editor: "Balancer"s and "Loop Back"s have buttons that you can press hold and drag to move and reshape them.</p>
+	<p>The simulation: The results of the simulation are below the editor, it shows each input and what they receive.</p>
 </body>
 </html>
