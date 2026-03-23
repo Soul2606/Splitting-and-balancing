@@ -29,11 +29,11 @@
 	-->
 	<h3>Instructions</h3>
 	<p>Refresh the page to clear the editor.</p>
-	<p>Inputs are one the top, each input is named a, b, c... and has a value of 1.</p>
-	<p>Each node sends its value down until it hits an input or the bottom. Values will flow past objects if they do not hit the input. You can visualize this by hovering over any input or output.</p>
+	<p>The Initial Inputs are one the top, each input is an output named a, b, c... and has a value of 1. This is the start of the simulation.</p>
+	<p>Values travel from outputs to inputs. Values will flow past objects if they do not hit the input. You can visualize this by hovering over any input or output.</p>
 	<p>Balancer: Has two inputs and outputs, both outputs = (input a + input b) / 2. One of the outputs can be disabled by clicking on them, then the output = input a + input b</p>
 	<p>Loop back: Has one input and a related element with one output. The input is not visible, it is at the opposite end of the related element. You can use a Loop Back to send values backwards.</p>
 	<p>The editor: "Balancer"s and "Loop Back"s have buttons that you can press hold and drag to move and reshape them.</p>
-	<p>The simulation: The results of the simulation are below the editor, it shows each input and what they receive.</p>
+	<p>The simulation: The values that are simulated are key value pairs where the key is the name of the initial input and the value is starts at one and is recalculated ate each Balancer. The results of the simulation is below the editor, it shows each input and what they receive.</p>
 </body>
 </html>
